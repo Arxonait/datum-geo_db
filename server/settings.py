@@ -28,7 +28,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['127.0.0.1']
 DB_PASSWORD = "1234"
 
-GDAL_LIBRARY_PATH = r"D:\anaconda\envs\gdal\Library\bin\gdal.dll"
+GDAL_LIBRARY_PATH = r"C:\OSGeo4W\bin\gdal308.dll"
 
 
 # Application definition
@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     "geo_db",
+    "rest_framework_gis",
+    "rest_framework"
 ]
 
 MIDDLEWARE = [
