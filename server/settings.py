@@ -11,7 +11,9 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
+load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -26,10 +28,9 @@ SECRET_KEY = 'django-insecure-z&xk79-e%d-r^gu54piv&1ho2ugv=&v0w_llmhw6c#^tyx9u@^
 DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1']
-DB_PASSWORD = "1234"
 
-GDAL_LIBRARY_PATH = r"C:\OSGeo4W\bin\gdal308.dll"
-
+#GDAL_LIBRARY_PATH = r"C:\OSGeo4W\bin\gdal308.dll"
+GDAL_LIBRARY_PATH = os.getenv("GDAL_LIBRARY_PATH")
 
 # Application definition
 
@@ -82,9 +83,9 @@ WSGI_APPLICATION = 'server.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': 'geo_db',
-        'USER': 'postgres',
-        'PASSWORD': DB_PASSWORD,
+        'NAME': os.getenv("NAME_DB"),
+        'USER': os.getenv("USER_DB"),
+        'PASSWORD': os.getenv("PASSWORD_DB"),
         'HOST': 'localhost',
         'PORT': 5432,
     }

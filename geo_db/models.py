@@ -1,3 +1,5 @@
+import os
+
 from django.contrib.gis.db import models
 from osgeo import ogr
 from pyproj import Transformer
@@ -48,5 +50,5 @@ class Capital(GeoModel):
 
 
 class Photo(models.Model):
-    image = models.ImageField(upload_to='gallery')  # todo  определить папку
+    image = models.ImageField(upload_to=os.getenv("IMAGES_PATH"))  # todo  определить папку
     city = models.ForeignKey("City", on_delete=models.CASCADE, related_name='images')
