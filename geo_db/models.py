@@ -40,9 +40,13 @@ class Country(GeoModel):
 
 class City(GeoModel):
     description = models.TextField()
-    # images = models.TextField()
     country = models.ForeignKey("Country", on_delete=models.CASCADE)
 
 
 class Capital(GeoModel):
     country = models.ForeignKey("Country", on_delete=models.CASCADE)
+
+
+class Photo(models.Model):
+    image = models.ImageField(upload_to='gallery')  # todo  определить папку
+    city = models.ForeignKey("City", on_delete=models.CASCADE, related_name='images')
