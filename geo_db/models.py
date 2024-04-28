@@ -37,7 +37,9 @@ class GeoModel(models.Model):
 
 
 class Country(GeoModel):
-    pass
+    class Meta:
+        verbose_name = "Страны"
+        verbose_name_plural = "Страны"
 
 
 class City(GeoModel):
