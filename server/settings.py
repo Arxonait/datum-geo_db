@@ -29,8 +29,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1']
 
-#GDAL_LIBRARY_PATH = r"C:\OSGeo4W\bin\gdal308.dll"
-GDAL_LIBRARY_PATH = os.getenv("GDAL_LIBRARY_PATH")
+GDAL_LIBRARY_PATH = r"C:\OSGeo4W\bin\gdal308.dll"
 
 # Application definition
 

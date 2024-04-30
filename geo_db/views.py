@@ -1,3 +1,4 @@
+import geojson
 from django.contrib.gis import geos
 from django.contrib.gis.gdal import SpatialReference, CoordTransform
 from django.contrib.gis.geos import GEOSGeometry, Polygon, GEOSException
@@ -5,6 +6,7 @@ from osgeo import ogr
 from pyproj import Transformer
 from rest_framework import status
 from rest_framework.request import Request
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from geo_db.MyResponse import MyResponse
@@ -21,13 +23,15 @@ class CountryAPI(APIView):
         limit, offset
         area
         bbox
+        type_geo_output ['simple', 'feature'] default simple
         """
 
         filter_data = {}
         if country_id is not None:
-            limit = 0
+            limit = 10
             offset = 0
             filter_data["pk"] = country_id
+
         if request.query_params.get("bbox"):
             pass  # todo
 
@@ -35,16 +39,31 @@ class CountryAPI(APIView):
         count_data = len(countries)
 
         if country_id is not None and count_data == 0:
-            return MyResponse(detail="Country not found", status_code=status.HTTP_404_NOT_FOUND).to_response_api()
+            return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        if request.query_params.get("area"):
-            for i in countries:
-                print("Площадь полигона:", i.get_area(), "квадратных метров")
+        remove_fields = set()
+        if not request.query_params.get("area"):
+            remove_fields.add("area")
 
-        countries = countries[offset:offset+limit]
+        countries = countries[offset:offset + limit]
 
-        response = MyResponse(data=CountrySerializer(countries, many=True).data, count_data=count_data)
-        return response.to_response_api()
+        type_geo_output = request.query_params.get("type_geo_output", "simple")
+        if type_geo_output not in ("feature", "simple"):
+            return Response(data={"detail": "get param type_geo_output valid values ['feature', 'simple']"},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if type_geo_output == "simple":
+            result_data = {
+                "count": count_data,
+                "data": CountrySerializer(countries, many=True, remove_fields=remove_fields,
+                                          type_geo_output=type_geo_output).data
+            }
+        else:
+            result_data = geojson.FeatureCollection(CountrySerializer(countries, many=True, remove_fields=remove_fields,
+                                                                      type_geo_output=type_geo_output).data)
+            result_data["count"] = count_data
+
+        return Response(data=result_data)
 
     def post(self, request: Request):
         country = CountrySerializer(data=request.data)
@@ -55,12 +74,12 @@ class CountryAPI(APIView):
 
     def patch(self, request, country_id=None, partial=True):
         if country_id is None:
-            return MyResponse(detail="Country id is required", status_code=status.HTTP_400_BAD_REQUEST).to_response_api()
+            return Response(data={"detail": "country id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             country = Country.objects.get(pk=country_id)
         except:
-            return MyResponse(detail="Country not found", status_code=status.HTTP_404_NOT_FOUND).to_response_api()
+            return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
 
         country_data_update = CountrySerializer(data=request.data, instance=country, partial=partial)
         country_data_update.is_valid(raise_exception=True)
@@ -73,16 +92,16 @@ class CountryAPI(APIView):
 
     def delete(self, request: Request, country_id):
         if country_id is None:
-            return MyResponse(detail="Country id is required", status_code=status.HTTP_400_BAD_REQUEST).to_response_api()
+            return Response(data={"detail": "country id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             country = Country.objects.get(pk=country_id)
         except:
-            return MyResponse(detail="Country not found", status_code=status.HTTP_404_NOT_FOUND).to_response_api()
+            return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
 
         country.delete()
 
-        return MyResponse(detail=f"delete object {country_id}").to_response_api()
+        return Response({"detail": f"delete object {country_id}"})
 
 
 class CityAPI(APIView):

@@ -21,7 +21,8 @@ class GeoModel(models.Model):
     def __str__(self):
         return f"Name: {self.name}"
 
-    def get_area(self):
+    @property
+    def area(self):
         """Площадь в квадратных метрах"""
         coords_degrees = self.coordinates.coords[0]
         coords_meters = [transformer.transform(lon, lat) for lon, lat in coords_degrees]
@@ -33,7 +34,7 @@ class GeoModel(models.Model):
         poly.AddGeometry(ring)
 
         area = poly.GetArea()
-        return area
+        return round(area, 4)
 
 
 class Country(GeoModel):
