@@ -1,9 +1,5 @@
 import geojson
-from django.contrib.gis import geos
-from django.contrib.gis.gdal import SpatialReference, CoordTransform
-from django.contrib.gis.geos import GEOSGeometry, Polygon, GEOSException
-from osgeo import ogr
-from pyproj import Transformer
+from django.contrib.gis.geos import Polygon
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -19,10 +15,10 @@ class CountryAPI(APIView):
     @pagination
     def get(self, request: Request, country_id=None, limit=None, offset=None):
         """
-        query_params:
-        limit, offset
-        area
-        bbox
+        query_params: \n
+        limit, offset \n
+        area m^2 \n
+        bbox x_min y_min x_max y_max \n
         type_geo_output ['simple', 'feature'] default simple
         """
 
@@ -33,7 +29,15 @@ class CountryAPI(APIView):
             filter_data["pk"] = country_id
 
         if request.query_params.get("bbox"):
-            pass  # todo
+            bbox_coords = request.query_params.get("bbox").split()
+            bbox_coords = [float(coord) for coord in bbox_coords]
+
+            if len(bbox_coords) != 4:
+                return Response(data={"detail": "bbox required format x_min y_min x_max y_max"},
+                                status=status.HTTP_404_NOT_FOUND)
+
+            bbox_polygon = Polygon.from_bbox(bbox_coords)
+            filter_data["coordinates__within"] = bbox_polygon
 
         countries = Country.objects.filter(**filter_data)
         count_data = len(countries)
