@@ -13,7 +13,7 @@ from geo_db.serializers import CountrySerializer, CitySerializer
 
 class CountryAPI(APIView):
     @pagination
-    def get(self, request: Request, country_id=None, limit=None, offset=None):
+    def get(self, request: Request, country_id=None, pagination_data=None):
         """
         query_params: \n
         limit, offset \n
@@ -21,6 +21,8 @@ class CountryAPI(APIView):
         bbox x_min y_min x_max y_max \n
         type_geo_output ['simple', 'feature'] default simple
         """
+        limit = pagination_data["limit"]
+        offset = pagination_data["offset"]
 
         filter_data = {}
         if country_id is not None:
@@ -53,7 +55,8 @@ class CountryAPI(APIView):
 
         type_geo_output = request.query_params.get("type_geo_output", "simple")
         try:
-            result_data = output_geo_json_format(type_geo_output, CountrySerializer, countries, count_data, add_fields)
+            result_data = output_geo_json_format(type_geo_output, CountrySerializer, countries, pagination_data,
+                                                 count_data, add_fields)
         except Exception as e:
             return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -98,7 +101,7 @@ class CountryAPI(APIView):
 
 class CityAPI(APIView):
     @pagination
-    def get(self, request: Request, city_id=None, limit=None, offset=None):
+    def get(self, request: Request, city_id=None, pagination_data=None):
         """
         query_params: \n
         limit, offset \n
@@ -106,6 +109,8 @@ class CityAPI(APIView):
         bbox x_min y_min x_max y_max \n
         type_geo_output ['simple', 'feature'] default simple
         """
+        limit = pagination_data["limit"]
+        offset = pagination_data["offset"]
 
         filter_data = {}
         if city_id is not None:
@@ -138,7 +143,8 @@ class CityAPI(APIView):
 
         type_geo_output = request.query_params.get("type_geo_output", "simple")
         try:
-            result_data = output_geo_json_format(type_geo_output, CitySerializer, cities, count_data, add_fields)
+            result_data = output_geo_json_format(type_geo_output, CitySerializer, cities, pagination_data,
+                                                 count_data, add_fields)
         except Exception as e:
             return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
 
