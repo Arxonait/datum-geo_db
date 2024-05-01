@@ -1,15 +1,14 @@
 from rest_framework_gis.serializers import GeoFeatureModelSerializer, GeoModelSerializer
 from rest_framework import serializers
 
-from geo_db.models import Country, City
+from geo_db.models import Country, City, GeoModel
 import geojson
 
 
 class BaseGeoSerializer(serializers.ModelSerializer):
-    area = serializers.SerializerMethodField()
 
     def __init__(self, *args, **kwargs):
-        self.remove_fields = kwargs.pop('remove_fields', set())
+        self.add_fields = kwargs.pop('add_fields', set())
         type_geo_output = kwargs.pop("type_geo_output", "simple")
         if type_geo_output in ("simple", "feature"):
             self.type_geo_output = type_geo_output
@@ -22,14 +21,18 @@ class BaseGeoSerializer(serializers.ModelSerializer):
         fields = None
         geo_field = None
         id_field = None
+        remove_fields = None
 
     def to_representation(self, instance: Country):
-        target_fields = set(self.Meta.fields) - self.remove_fields
+        target_fields = (set(self.Meta.fields) - self.Meta.remove_fields) | self.add_fields
 
         properties = {}
         for target_field in target_fields:
             if target_field not in (self.Meta.id_field, self.Meta.geo_field):
-                properties[target_field] = instance.__getattribute__(target_field)
+                value = instance.__getattribute__(target_field)
+                if isinstance(value, GeoModel):
+                    value = value.id
+                properties[target_field] = value
 
         cords = geojson.Polygon(instance.coordinates.coords[0])
 
@@ -52,13 +55,18 @@ class CountrySerializer(BaseGeoSerializer):
     class Meta:
         model = Country
         fields = ("id", "name", "coordinates", "area")
+        remove_fields = {"area"}
         id_field = "id"
         geo_field = "coordinates"
         type = "country"
 
 
 class CitySerializer(BaseGeoSerializer):
+
     class Meta:
         model = City
-        fields = '__all__'
+        fields = ("id", "name", "coordinates", "area", "description", "country")
+        remove_fields = {"area"}
+        id_field = "id"
         geo_field = "coordinates"
+        type = "city"
