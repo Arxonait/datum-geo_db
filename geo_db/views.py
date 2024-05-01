@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from geo_db.models import Country, City
-from geo_db.mvc_view import output_geo_json_format
+from geo_db.mvc_view import output_many_geo_json_format, output_one_geo_json_format
 from geo_db.pagination import pagination
 from geo_db.serializers import CountrySerializer, CitySerializer
 
@@ -55,8 +55,11 @@ class CountryAPI(APIView):
 
         type_geo_output = request.query_params.get("type_geo_output", "simple")
         try:
-            result_data = output_geo_json_format(type_geo_output, CountrySerializer, countries, pagination_data,
-                                                 count_data, add_fields)
+            if country_id is None:
+                result_data = output_many_geo_json_format(type_geo_output, CountrySerializer, countries, pagination_data,
+                                                      count_data, add_fields)
+            else:
+                result_data = output_one_geo_json_format(type_geo_output, CountrySerializer, countries, add_fields)
         except Exception as e:
             return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -143,8 +146,11 @@ class CityAPI(APIView):
 
         type_geo_output = request.query_params.get("type_geo_output", "simple")
         try:
-            result_data = output_geo_json_format(type_geo_output, CitySerializer, cities, pagination_data,
-                                                 count_data, add_fields)
+            if city_id is None:
+                result_data = output_many_geo_json_format(type_geo_output, CountrySerializer, cities,
+                                                          pagination_data, count_data, add_fields)
+            else:
+                result_data = output_one_geo_json_format(type_geo_output, CountrySerializer, cities, add_fields)
         except Exception as e:
             return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
 
