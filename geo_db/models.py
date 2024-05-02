@@ -1,6 +1,9 @@
+import base64
 import os
+import datetime
 
 from django.contrib.gis.db import models
+from django.core.files.base import ContentFile
 from osgeo import ogr
 from pyproj import Transformer
 
@@ -53,5 +56,16 @@ class Capital(GeoModel):
 
 
 class Photo(models.Model):
-    image = models.ImageField(upload_to=os.getenv("IMAGES_PATH"))  # todo  определить папку
+    image = models.ImageField(upload_to=os.getenv("IMAGES_PATH"))
     city = models.ForeignKey("City", on_delete=models.CASCADE, related_name='images')
+
+    def __init__(self, city, base64_image: str, *args, **kwargs):
+        super().__init__(city=city, *args, **kwargs)
+        self.image = self.__decode_base64_image_to_file(base64_image)
+
+    def __decode_base64_image_to_file(self, base64_image: str):
+        image_data = base64.b64decode(base64_image)
+        return ContentFile(image_data, name=self.__get_new_image_name())
+
+    def __get_new_image_name(self):
+        return f'{self.city.id}_{datetime.datetime.now(datetime.UTC).isoformat()}.jpg'

@@ -1,17 +1,19 @@
-import geojson
-from django.contrib.gis.geos import Polygon
+import base64
+import datetime
+import os
+
+from django.core.files.base import ContentFile
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from geo_db.decorators import get_standard_query_param
-from geo_db.models import Country, City
+from geo_db.models import Country, City, Photo
 from geo_db.mvc_model import model_country, model_city
 from geo_db.mvc_view import output_many_geo_json_format, output_one_geo_json_format
 from geo_db.pagination import pagination
 from geo_db.serializers import CountrySerializer, CitySerializer
-from geo_db.validation import parse_valid_bbox
 
 
 class CountryAPI(APIView):
@@ -71,7 +73,7 @@ class CountryAPI(APIView):
             return Response(data={"detail": "country id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            country = Country.objects.get()
+            country = Country.objects.get(pk=country_id)
         except:
             return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -88,7 +90,7 @@ class CountryAPI(APIView):
             return Response(data={"detail": "country id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            country = Country.objects.get()
+            country = Country.objects.get(pk=country_id)
         except:
             return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -159,7 +161,7 @@ class CityAPI(APIView):
             return Response({"detail": "city id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            city = City.objects.get()
+            city = City.objects.get(pk=city_id)
         except:
             return Response({"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -176,10 +178,31 @@ class CityAPI(APIView):
             return Response({"detail": "city id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            city = City.objects.get()
+            city = City.objects.get(pk=city_id)
         except:
             return Response({"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
 
         city.delete()
 
         return Response({"detail": f"delete object {city_id}"})
+
+
+class ImagesCityAPI(APIView):
+    def post(self, request: Request, city_id):
+        os.makedirs(os.path.dirname(os.getenv("IMAGES_PATH")), exist_ok=True)
+
+        if city_id is None:
+            return Response({"detail": "city id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            city = City.objects.get(pk=city_id)
+        except:
+            return Response({"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        base64_image = request.data.get("base64_image")
+        if base64_image is None:
+            return Response({"detail": "base64_image is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        photo = Photo(city=city, base64_image=base64_image)
+        photo.save()
+        return Response(data={"status": "created"}, status=status.HTTP_201_CREATED)
