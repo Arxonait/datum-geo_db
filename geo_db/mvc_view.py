@@ -4,7 +4,7 @@ from geo_db.pagination import create_links_pagination_limit_offset
 
 
 def output_many_geo_json_format(type_geo_output: str, ClassSerilizer, data, pagination_data: dict, count_data,
-                                add_fields: set = None):
+                                add_fields: set = None, total_area: float = None):
     if type_geo_output not in ("feature", "simple"):
         raise Exception("get param type_geo_output valid values ['feature', 'simple']")
 
@@ -14,6 +14,9 @@ def output_many_geo_json_format(type_geo_output: str, ClassSerilizer, data, pagi
         "previous_link": previous_link,
         "next_link": next_link
     }
+
+    if total_area:
+        result_data["total_area"] = total_area
 
     if type_geo_output == "simple":
         result_data["data"] = ClassSerilizer(data, many=True, add_fields=add_fields,
