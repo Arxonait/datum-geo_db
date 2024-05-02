@@ -6,9 +6,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from geo_db.models import Country, City
+from geo_db.mvc_model import model_country, model_city
 from geo_db.mvc_view import output_many_geo_json_format, output_one_geo_json_format
 from geo_db.pagination import pagination
 from geo_db.serializers import CountrySerializer, CitySerializer
+from geo_db.validation import parse_valid_bbox
 
 
 class CountryAPI(APIView):
@@ -17,53 +19,50 @@ class CountryAPI(APIView):
         """
         query_params: \n
         limit, offset \n
-        area m^2 \n
+        area: bool m^2 \n
         bbox x_min y_min x_max y_max \n
         type_geo_output ['simple', 'feature'] default simple
+        total area: bool
         """
         limit = pagination_data["limit"]
         offset = pagination_data["offset"]
-
-        filter_data = {}
-        if country_id is not None:
-            limit = 10
-            offset = 0
-            filter_data["pk"] = country_id
-
-        if request.query_params.get("bbox"):
-            bbox_coords = request.query_params.get("bbox").split()
-            bbox_coords = [float(coord) for coord in bbox_coords]
-
-            if len(bbox_coords) != 4:
-                return Response(data={"detail": "bbox required format x_min y_min x_max y_max"},
-                                status=status.HTTP_404_NOT_FOUND)
-
-            bbox_polygon = Polygon.from_bbox(bbox_coords)
-            filter_data["coordinates__within"] = bbox_polygon
-
-        countries = Country.objects.filter(**filter_data)
-        count_data = len(countries)
-
-        if country_id is not None and count_data == 0:
-            return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
-
+        type_geo_output = request.query_params.get("type_geo_output", "simple")
         add_fields = set()
         if request.query_params.get("area"):
             add_fields.add("area")
 
-        countries = countries[offset:offset + limit]
-
-        type_geo_output = request.query_params.get("type_geo_output", "simple")
-        try:
-            if country_id is None:
-                result_data = output_many_geo_json_format(type_geo_output, CountrySerializer, countries, pagination_data,
-                                                      count_data, add_fields)
-            else:
+        if country_id is not None:
+            countries = model_country(country_id=country_id)
+            if len(countries) == 0:
+                return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
+            try:
                 result_data = output_one_geo_json_format(type_geo_output, CountrySerializer, countries, add_fields)
+                return Response(data=result_data)
+            except Exception as e:
+                return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
+
+        # для нескольких объектов
+        bbox_coords = None
+        if request.query_params.get("bbox"):
+            try:
+                bbox_coords = parse_valid_bbox(request.query_params.get("bbox"))
+            except Exception as e:
+                return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
+
+        countries = model_country(bbox_coords=bbox_coords)
+        count_data = len(countries)
+
+        countries = countries[offset: offset + limit]
+        total_area = None
+        if request.query_params.get("total_area", "false").lower() == "true":
+            total_area = sum([obj.area for obj in countries])
+
+        try:
+            result_data = output_many_geo_json_format(type_geo_output, CountrySerializer, countries,
+                                                      pagination_data, count_data, add_fields, total_area)
+            return Response(data=result_data)
         except Exception as e:
             return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response(data=result_data)
 
     def post(self, request: Request):
         country = CountrySerializer(data=request.data)
@@ -104,57 +103,54 @@ class CountryAPI(APIView):
 
 class CityAPI(APIView):
     @pagination
-    def get(self, request: Request, city_id=None, pagination_data=None):
+    def get(self, request: Request, city_id=None, country_id=None, pagination_data=None):
         """
         query_params: \n
         limit, offset \n
-        area m^2 \n
+        area: bool m^2 \n
         bbox x_min y_min x_max y_max \n
         type_geo_output ['simple', 'feature'] default simple
+        total area: bool
         """
         limit = pagination_data["limit"]
         offset = pagination_data["offset"]
-
-        filter_data = {}
-        if city_id is not None:
-            limit = 10
-            offset = 0
-            filter_data["pk"] = city_id
-
-        if request.query_params.get("bbox"):
-            bbox_coords = request.query_params.get("bbox").split()
-            bbox_coords = [float(coord) for coord in bbox_coords]
-
-            if len(bbox_coords) != 4:
-                return Response(data={"detail": "bbox required format x_min y_min x_max y_max"},
-                                status=status.HTTP_404_NOT_FOUND)
-
-            bbox_polygon = Polygon.from_bbox(bbox_coords)
-            filter_data["coordinates__within"] = bbox_polygon
-
-        cities = City.objects.filter(**filter_data)
-        count_data = len(cities)
-
-        if city_id is not None and count_data == 0:
-            return Response(data={"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
-
+        type_geo_output = request.query_params.get("type_geo_output", "simple")
         add_fields = set()
         if request.query_params.get("area"):
             add_fields.add("area")
 
-        cities = cities[offset:offset + limit]
+        if city_id is not None:
+            cities = model_city(city_id=city_id)
+            if len(cities) == 0:
+                return Response(data={"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
+            try:
+                result_data = output_one_geo_json_format(type_geo_output, CitySerializer, cities, add_fields)
+                return Response(data=result_data)
+            except Exception as e:
+                return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
 
-        type_geo_output = request.query_params.get("type_geo_output", "simple")
+        # для нескольких объектов
+        bbox_coords = None
+        if request.query_params.get("bbox"):
+            try:
+                bbox_coords = parse_valid_bbox(request.query_params.get("bbox"))
+            except Exception as e:
+                return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
+
+        cities = model_city(bbox_coords=bbox_coords, country_id=country_id)
+        count_data = len(cities)
+
+        cities = cities[offset: offset + limit]
+        total_area = None
+        if request.query_params.get("total_area", "false").lower() == "true":
+            total_area = sum([obj.area for obj in cities])
+
         try:
-            if city_id is None:
-                result_data = output_many_geo_json_format(type_geo_output, CountrySerializer, cities,
-                                                          pagination_data, count_data, add_fields)
-            else:
-                result_data = output_one_geo_json_format(type_geo_output, CountrySerializer, cities, add_fields)
+            result_data = output_many_geo_json_format(type_geo_output, CitySerializer, cities,
+                                                      pagination_data, count_data, add_fields, total_area)
+            return Response(data=result_data)
         except Exception as e:
             return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response(data=result_data)
 
     def post(self, request: Request):
         city = CitySerializer(data=request.data)
