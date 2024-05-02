@@ -4,16 +4,14 @@ from rest_framework import serializers
 from geo_db.models import Country, City, GeoModel
 import geojson
 
+from geo_db.mvc_view import TypeGeoOutput
+
 
 class BaseGeoSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         self.add_fields = kwargs.pop('add_fields', set())
-        type_geo_output = kwargs.pop("type_geo_output", "simple")
-        if type_geo_output in ("simple", "feature"):
-            self.type_geo_output = type_geo_output
-        else:
-            self.type_geo_output = "simple"
+        self.type_geo_output: TypeGeoOutput = kwargs.pop("type_geo_output")
         super().__init__(*args, **kwargs)
 
     class Meta:
@@ -36,7 +34,7 @@ class BaseGeoSerializer(serializers.ModelSerializer):
 
         cords = geojson.Polygon(instance.coordinates.coords[0])
 
-        if self.type_geo_output == "feature":
+        if self.type_geo_output == TypeGeoOutput.feature:
             result = geojson.Feature(id=instance.pk, geometry=cords, properties=properties)
         else:
             attributes = {

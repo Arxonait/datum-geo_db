@@ -5,6 +5,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from geo_db.decorators import get_standard_query_param
 from geo_db.models import Country, City
 from geo_db.mvc_model import model_country, model_city
 from geo_db.mvc_view import output_many_geo_json_format, output_one_geo_json_format
@@ -14,8 +15,9 @@ from geo_db.validation import parse_valid_bbox
 
 
 class CountryAPI(APIView):
+    @get_standard_query_param
     @pagination
-    def get(self, request: Request, country_id=None, pagination_data=None):
+    def get(self, request: Request, country_id=None, pagination_data=None, **kwargs):
         """
         query_params: \n
         limit, offset \n
@@ -26,7 +28,8 @@ class CountryAPI(APIView):
         """
         limit = pagination_data["limit"]
         offset = pagination_data["offset"]
-        type_geo_output = request.query_params.get("type_geo_output", "simple")
+        type_geo_output = kwargs["get_params"]["type_geo_output"]
+
         add_fields = set()
         if request.query_params.get("area"):
             add_fields.add("area")
@@ -42,14 +45,7 @@ class CountryAPI(APIView):
                 return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
 
         # для нескольких объектов
-        bbox_coords = None
-        if request.query_params.get("bbox"):
-            try:
-                bbox_coords = parse_valid_bbox(request.query_params.get("bbox"))
-            except Exception as e:
-                return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
-
-        countries = model_country(bbox_coords=bbox_coords)
+        countries = model_country(bbox_coords=kwargs["get_params"]["bbox"])
         count_data = len(countries)
 
         countries = countries[offset: offset + limit]
@@ -102,8 +98,9 @@ class CountryAPI(APIView):
 
 
 class CityAPI(APIView):
+    @get_standard_query_param
     @pagination
-    def get(self, request: Request, city_id=None, country_id=None, pagination_data=None):
+    def get(self, request: Request, city_id=None, country_id=None, pagination_data=None, **kwargs):
         """
         query_params: \n
         limit, offset \n
@@ -114,7 +111,8 @@ class CityAPI(APIView):
         """
         limit = pagination_data["limit"]
         offset = pagination_data["offset"]
-        type_geo_output = request.query_params.get("type_geo_output", "simple")
+        type_geo_output = kwargs["get_params"]["type_geo_output"]
+
         add_fields = set()
         if request.query_params.get("area"):
             add_fields.add("area")
@@ -130,14 +128,7 @@ class CityAPI(APIView):
                 return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
 
         # для нескольких объектов
-        bbox_coords = None
-        if request.query_params.get("bbox"):
-            try:
-                bbox_coords = parse_valid_bbox(request.query_params.get("bbox"))
-            except Exception as e:
-                return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
-
-        cities = model_city(bbox_coords=bbox_coords, country_id=country_id)
+        cities = model_city(bbox_coords=kwargs["get_params"]["bbox"], country_id=country_id)
         count_data = len(cities)
 
         cities = cities[offset: offset + limit]
