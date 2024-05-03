@@ -2,7 +2,6 @@ import base64
 
 import pandas
 from django.test import TestCase
-from django.urls import reverse
 
 from geo_db.models import Country, City
 

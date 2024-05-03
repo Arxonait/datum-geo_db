@@ -56,7 +56,7 @@ class City(GeoModel):
 
 
 class Capital(GeoModel):
-    country = models.ForeignKey("Country", on_delete=models.CASCADE)
+    country = models.OneToOneField("Country", on_delete=models.CASCADE)
 
 
 class Photo(models.Model):

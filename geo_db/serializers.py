@@ -1,7 +1,8 @@
+from django.db.models import Model
 from rest_framework_gis.serializers import GeoFeatureModelSerializer, GeoModelSerializer
 from rest_framework import serializers
 
-from geo_db.models import Country, City, GeoModel
+from geo_db.models import Country, City, GeoModel, Capital
 import geojson
 
 from geo_db.mvc_view import TypeGeoOutput
@@ -28,7 +29,7 @@ class BaseGeoSerializer(serializers.ModelSerializer):
         for target_field in target_fields:
             if target_field not in (self.Meta.id_field, self.Meta.geo_field):
                 value = instance.__getattribute__(target_field)
-                if isinstance(value, GeoModel):
+                if isinstance(value, Model):
                     value = value.id
                 properties[target_field] = value
 
@@ -60,7 +61,6 @@ class CountrySerializer(BaseGeoSerializer):
 
 
 class CitySerializer(BaseGeoSerializer):
-
     class Meta:
         model = City
         fields = ("id", "name", "coordinates", "area", "description", "country")
@@ -68,3 +68,13 @@ class CitySerializer(BaseGeoSerializer):
         id_field = "id"
         geo_field = "coordinates"
         type = "city"
+
+
+class CapitalSerializer(BaseGeoSerializer):
+    class Meta:
+        model = Capital
+        fields = ("id", "name", "coordinates", "area", "country")
+        remove_fields = {"area"}
+        id_field = "id"
+        geo_field = "coordinates"
+        type = "capital"

@@ -1,4 +1,5 @@
 import os
+from functools import wraps
 
 from rest_framework import status
 from rest_framework.request import Request
@@ -6,17 +7,34 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from geo_db.decorators import get_standard_query_param
-from geo_db.models import Country, City, Photo, GeoModel
-from geo_db.mvc_model import model_country, model_city
+from geo_db.models import Country, City, Photo, GeoModel, Capital
+from geo_db.mvc_model import model_country, model_city, model_capital
 from geo_db.mvc_view import output_many_geo_json_format, output_one_geo_json_format
 from geo_db.pagination import pagination
-from geo_db.serializers import CountrySerializer, CitySerializer, BaseGeoSerializer
+from geo_db.serializers import CountrySerializer, CitySerializer, BaseGeoSerializer, CapitalSerializer
 
 
 class BaseAPI(APIView):
     model: GeoModel = None
     model_name: str = None
     serializer: BaseGeoSerializer = None
+
+    def get_target_id_resource(name_id: str):
+        def wrapper_decorator(func):
+            @wraps(func)
+            def wrapper(self, *args, **kwargs):
+                obj_id = kwargs.get(name_id)
+                if obj_id is None:
+                    return Response(data={"detail": f"{self.model_name} id is required"},
+                                    status=status.HTTP_400_BAD_REQUEST)
+                try:
+                    obj = self.model.objects.get(pk=obj_id)
+                except:
+                    return Response(data={"detail": f"{self.model_name} not found"}, status=status.HTTP_404_NOT_FOUND)
+
+                return func(self, *args, obj=obj, **kwargs)
+            return wrapper
+        return wrapper_decorator
 
     def post(self, request):
         obj = self.serializer(data=request.data)
@@ -25,19 +43,12 @@ class BaseAPI(APIView):
         try:
             obj.save()
         except Exception as e:
-            return Response({"detail": f"error: {e.args}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": f"error: {e.args[0]}"}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(data=obj.data, status=status.HTTP_201_CREATED)
 
-    def patch(self, request, obj_id=None, partial=True):
-        if obj_id is None:
-            return Response(data={"detail": f"{self.model_name} id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            obj = self.model.objects.get(pk=obj_id)
-        except:
-            return Response(data={"detail": f"{self.model_name} not found"}, status=status.HTTP_404_NOT_FOUND)
-
+    @get_target_id_resource(name_id="obj_id")
+    def patch(self, request, obj, partial=True, **kwargs):
         obj_data_update = self.serializer(data=request.data, instance=obj, partial=partial)
         obj_data_update.is_valid(raise_exception=True)
         obj_data_update.save()
@@ -46,17 +57,10 @@ class BaseAPI(APIView):
     def put(self, request, obj_id=None):
         return self.patch(request, obj_id, partial=False)
 
-    def delete(self, request: Request, obj_id):
-        if obj_id is None:
-            return Response(data={"detail": f"{self.model_name} id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            country = self.model.objects.get(pk=obj_id)
-        except:
-            return Response(data={"detail": f"{self.model_name} not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        country.delete()
-
+    @get_target_id_resource(name_id="obj_id")
+    def delete(self, request: Request, obj, **kwargs):
+        obj_id = obj.pk
+        obj.delete()
         return Response({"detail": f"delete {self.model_name} {obj_id}"})
 
 
@@ -90,7 +94,6 @@ class CountryAPI(BaseAPI):
                 return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
             result_data = output_one_geo_json_format(type_geo_output, CountrySerializer, countries, add_fields)
             return Response(data=result_data)
-
 
         # для нескольких объектов
         countries = model_country(bbox_coords=kwargs["get_params"]["bbox"])
@@ -139,7 +142,6 @@ class CityAPI(BaseAPI):
                 return Response(data={"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
             result_data = output_one_geo_json_format(type_geo_output, CitySerializer, cities, add_fields)
             return Response(data=result_data)
-
 
         # для нескольких объектов
         cities = model_city(bbox_coords=kwargs["get_params"]["bbox"], country_id=country_id)
@@ -205,3 +207,78 @@ class ImagesCityAPI(APIView):
         photo = Photo(city=city, base64_image=base64_image)
         photo.save()
         return Response(data={"status": "created"}, status=status.HTTP_201_CREATED)
+
+
+class CapitalAPI(BaseAPI):
+    model: GeoModel = Capital
+    model_name: str = "capital"
+    serializer: BaseGeoSerializer = CapitalSerializer
+
+    @get_standard_query_param
+    @pagination
+    def get(self, request: Request, obj_id=None, country_id=None, pagination_data=None, **kwargs):
+        """
+        query_params: \n
+        limit, offset \n
+        area: bool m^2 \n
+        bbox x_min y_min x_max y_max \n
+        type_geo_output ['simple', 'feature'] default simple
+        total area: bool
+        """
+        limit = pagination_data["limit"]
+        offset = pagination_data["offset"]
+        type_geo_output = kwargs["get_params"]["type_geo_output"]
+
+        add_fields = set()
+        if request.query_params.get("area"):
+            add_fields.add("area")
+
+        if obj_id is not None or country_id is not None:
+            capitals = model_capital(capital_id=obj_id, country_id=country_id)
+            if len(capitals) == 0:
+                return Response(data={"detail": "capital not found"}, status=status.HTTP_404_NOT_FOUND)
+            result_data = output_one_geo_json_format(type_geo_output, CapitalSerializer, capitals, add_fields)
+            return Response(data=result_data)
+
+        # для нескольких объектов
+        capitals = model_capital(bbox_coords=kwargs["get_params"]["bbox"])
+        count_data = len(capitals)
+
+        capitals = capitals[offset: offset + limit]
+        total_area = None
+        if request.query_params.get("total_area", "false").lower() == "true":
+            total_area = sum([obj.area for obj in capitals])
+
+        try:
+            result_data = output_many_geo_json_format(type_geo_output, CapitalSerializer, capitals,
+                                                      pagination_data, count_data, add_fields, total_area)
+            return Response(data=result_data)
+        except Exception as e:
+            return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request, country_id=None):
+        return super().post(request)
+
+    def convert_country_to_capital(func):
+        def wrapper(self, *args, obj_id=None, country_id=None, **kwargs):
+            if country_id:
+                capitals = model_capital(country_id=country_id)
+                if len(capitals) != 1:
+                    return Response(data={"detail": f"{self.model_name} not found"}, status=status.HTTP_404_NOT_FOUND)
+                obj_id = capitals[0].pk
+            print(kwargs)
+            return func(self, *args, obj_id=obj_id, **kwargs)
+
+        return wrapper
+
+    @convert_country_to_capital
+    def put(self, request, obj_id):
+        return self.patch(request, obj_id=obj_id, partial=False)
+
+    @convert_country_to_capital
+    def patch(self, request, obj_id, partial=True):
+        return super().patch(request, obj_id, partial=partial)
+
+    @convert_country_to_capital
+    def delete(self, request, obj_id):
+        return super().delete(request, obj_id)

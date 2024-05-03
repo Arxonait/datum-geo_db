@@ -14,6 +14,7 @@ urlpatterns = [
     path("cities/<int:city_id>/images", ImagesCityAPI.as_view()),
     path("cities/<int:city_id>/images/<int:num_image>", ImagesCityAPI.as_view()),
 
-    # path("countries/", ...),
-    # path("countries/<int:country_id>", ...),
+    path("capitals/", CapitalAPI.as_view()),
+    path("capitals/<int:obj_id>", CapitalAPI.as_view()),
+    path("countries/<int:country_id>/capital", CapitalAPI.as_view())
 ]
