@@ -88,11 +88,9 @@ class CountryAPI(BaseAPI):
             countries = model_country(country_id=obj_id)
             if len(countries) == 0:
                 return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
-            try:
-                result_data = output_one_geo_json_format(type_geo_output, CountrySerializer, countries, add_fields)
-                return Response(data=result_data)
-            except Exception as e:
-                return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
+            result_data = output_one_geo_json_format(type_geo_output, CountrySerializer, countries, add_fields)
+            return Response(data=result_data)
+
 
         # для нескольких объектов
         countries = model_country(bbox_coords=kwargs["get_params"]["bbox"])
@@ -139,11 +137,9 @@ class CityAPI(BaseAPI):
             cities = model_city(city_id=obj_id)
             if len(cities) == 0:
                 return Response(data={"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
-            try:
-                result_data = output_one_geo_json_format(type_geo_output, CitySerializer, cities, add_fields)
-                return Response(data=result_data)
-            except Exception as e:
-                return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
+            result_data = output_one_geo_json_format(type_geo_output, CitySerializer, cities, add_fields)
+            return Response(data=result_data)
+
 
         # для нескольких объектов
         cities = model_city(bbox_coords=kwargs["get_params"]["bbox"], country_id=country_id)
