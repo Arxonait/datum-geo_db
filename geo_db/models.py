@@ -1,6 +1,6 @@
 import base64
 import os
-import datetime
+import uuid
 
 from django.contrib.gis.db import models
 from django.core.files.base import ContentFile
@@ -42,13 +42,17 @@ class GeoModel(models.Model):
 
 class Country(GeoModel):
     class Meta:
-        verbose_name = "Страны"
+        verbose_name = "Страна"
         verbose_name_plural = "Страны"
 
 
 class City(GeoModel):
     description = models.TextField()
     country = models.ForeignKey("Country", on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name = "Город"
+        verbose_name_plural = "Города"
 
 
 class Capital(GeoModel):
@@ -57,15 +61,23 @@ class Capital(GeoModel):
 
 class Photo(models.Model):
     image = models.ImageField(upload_to=os.getenv("IMAGES_PATH"))
+    time_created = models.DateTimeField(auto_now_add=True)
     city = models.ForeignKey("City", on_delete=models.CASCADE, related_name='images')
 
-    def __init__(self, city, base64_image: str, *args, **kwargs):
-        super().__init__(city=city, *args, **kwargs)
-        self.image = self.__decode_base64_image_to_file(base64_image)
+    def __init__(self, *args, base64_image: str = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if base64_image is not None:
+            self.image = self.__decode_base64_image_to_file(base64_image)
 
     def __decode_base64_image_to_file(self, base64_image: str):
         image_data = base64.b64decode(base64_image)
         return ContentFile(image_data, name=self.__get_new_image_name())
 
+    def get_image_base64(self):
+        with self.image.open(mode='rb') as img_file:
+            img_data = img_file.read()
+
+        return base64.b64encode(img_data).decode('utf-8')
+
     def __get_new_image_name(self):
-        return f'{self.city.id}_{datetime.datetime.now(datetime.UTC).isoformat()}.jpg'
+        return f'{self.city.id}_{str(uuid.uuid4())[:7]}.jpg'

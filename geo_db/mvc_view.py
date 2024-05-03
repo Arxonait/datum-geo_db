@@ -9,6 +9,10 @@ class TypeGeoOutput(Enum):
     feature = "feature"
     simple = "simple"
 
+    @classmethod
+    def get_default(cls):
+        return cls.simple
+
 
 def output_many_geo_json_format(type_geo_output: TypeGeoOutput, ClassSerilizer, data, pagination_data: dict, count_data,
                                 add_fields: set = None, total_area: float = None):

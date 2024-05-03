@@ -1,25 +1,73 @@
-import base64
-import datetime
 import os
 
-from django.core.files.base import ContentFile
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from geo_db.decorators import get_standard_query_param
-from geo_db.models import Country, City, Photo
+from geo_db.models import Country, City, Photo, GeoModel
 from geo_db.mvc_model import model_country, model_city
 from geo_db.mvc_view import output_many_geo_json_format, output_one_geo_json_format
 from geo_db.pagination import pagination
-from geo_db.serializers import CountrySerializer, CitySerializer
+from geo_db.serializers import CountrySerializer, CitySerializer, BaseGeoSerializer
 
 
-class CountryAPI(APIView):
+class BaseAPI(APIView):
+    model: GeoModel = None
+    model_name: str = None
+    serializer: BaseGeoSerializer = None
+
+    def post(self, request):
+        obj = self.serializer(data=request.data)
+        obj.is_valid(raise_exception=True)
+
+        try:
+            obj.save()
+        except Exception as e:
+            return Response({"detail": f"error: {e.args}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(data=obj.data, status=status.HTTP_201_CREATED)
+
+    def patch(self, request, obj_id=None, partial=True):
+        if obj_id is None:
+            return Response(data={"detail": f"{self.model_name} id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            obj = self.model.objects.get(pk=obj_id)
+        except:
+            return Response(data={"detail": f"{self.model_name} not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        obj_data_update = self.serializer(data=request.data, instance=obj, partial=partial)
+        obj_data_update.is_valid(raise_exception=True)
+        obj_data_update.save()
+        return Response(data=obj_data_update.data, status=status.HTTP_200_OK)
+
+    def put(self, request, obj_id=None):
+        return self.patch(request, obj_id, partial=False)
+
+    def delete(self, request: Request, obj_id):
+        if obj_id is None:
+            return Response(data={"detail": f"{self.model_name} id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            country = self.model.objects.get(pk=obj_id)
+        except:
+            return Response(data={"detail": f"{self.model_name} not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        country.delete()
+
+        return Response({"detail": f"delete {self.model_name} {obj_id}"})
+
+
+class CountryAPI(BaseAPI):
+    model: GeoModel = Country
+    model_name: str = "country"
+    serializer: BaseGeoSerializer = CountrySerializer
+
     @get_standard_query_param
     @pagination
-    def get(self, request: Request, country_id=None, pagination_data=None, **kwargs):
+    def get(self, request: Request, obj_id=None, pagination_data=None, **kwargs):
         """
         query_params: \n
         limit, offset \n
@@ -36,8 +84,8 @@ class CountryAPI(APIView):
         if request.query_params.get("area"):
             add_fields.add("area")
 
-        if country_id is not None:
-            countries = model_country(country_id=country_id)
+        if obj_id is not None:
+            countries = model_country(country_id=obj_id)
             if len(countries) == 0:
                 return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
             try:
@@ -62,47 +110,15 @@ class CountryAPI(APIView):
         except Exception as e:
             return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
 
-    def post(self, request: Request):
-        country = CountrySerializer(data=request.data)
-        country.is_valid(raise_exception=True)
-        country.save()
-        return Response(data=country.data, status=status.HTTP_201_CREATED)
 
-    def patch(self, request, country_id=None, partial=True):
-        if country_id is None:
-            return Response(data={"detail": "country id is required"}, status=status.HTTP_400_BAD_REQUEST)
+class CityAPI(BaseAPI):
+    model: GeoModel = City
+    model_name: str = "city"
+    serializer: BaseGeoSerializer = CitySerializer
 
-        try:
-            country = Country.objects.get(pk=country_id)
-        except:
-            return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        country_data_update = CountrySerializer(data=request.data, instance=country, partial=partial)
-        country_data_update.is_valid(raise_exception=True)
-        country_data_update.save()
-        return Response(data=country.data, status=status.HTTP_200_OK)
-
-    def put(self, request, country_id=None):
-        return self.patch(request, country_id, partial=False)
-
-    def delete(self, request: Request, country_id):
-        if country_id is None:
-            return Response(data={"detail": "country id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            country = Country.objects.get(pk=country_id)
-        except:
-            return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        country.delete()
-
-        return Response({"detail": f"delete object {country_id}"})
-
-
-class CityAPI(APIView):
     @get_standard_query_param
     @pagination
-    def get(self, request: Request, city_id=None, country_id=None, pagination_data=None, **kwargs):
+    def get(self, request: Request, obj_id=None, country_id=None, pagination_data=None, **kwargs):
         """
         query_params: \n
         limit, offset \n
@@ -119,8 +135,8 @@ class CityAPI(APIView):
         if request.query_params.get("area"):
             add_fields.add("area")
 
-        if city_id is not None:
-            cities = model_city(city_id=city_id)
+        if obj_id is not None:
+            cities = model_city(city_id=obj_id)
             if len(cities) == 0:
                 return Response(data={"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
             try:
@@ -145,49 +161,36 @@ class CityAPI(APIView):
         except Exception as e:
             return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
 
-    def post(self, request: Request):
-        city = CitySerializer(data=request.data)
-        city.is_valid(raise_exception=True)
-
-        try:
-            city.save()
-        except Exception as e:
-            return Response({"detail": f"error: {e.args}"}, status=status.HTTP_404_NOT_FOUND)
-
-        return Response(data=city.data, status=status.HTTP_201_CREATED)
-
-    def patch(self, request, city_id=None, partial=True):
-        if city_id is None:
-            return Response({"detail": "city id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            city = City.objects.get(pk=city_id)
-        except:
-            return Response({"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        city_data_update = CitySerializer(data=request.data, instance=city, partial=partial)
-        city_data_update.is_valid(raise_exception=True)
-        city_data_update.save()
-        return Response(data=city.data, status=status.HTTP_200_OK)
-
-    def put(self, request, city_id=None):
-        return self.patch(request, city_id, partial=False)
-
-    def delete(self, request: Request, city_id):
-        if city_id is None:
-            return Response({"detail": "city id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            city = City.objects.get(pk=city_id)
-        except:
-            return Response({"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        city.delete()
-
-        return Response({"detail": f"delete object {city_id}"})
-
 
 class ImagesCityAPI(APIView):
+
+    def get(self, request: Request, city_id, num_image: int = None):
+        if city_id is None:
+            return Response({"detail": "city id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            city = City.objects.get(pk=city_id)
+        except:
+            return Response({"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        photos = Photo.objects.filter(city_id=city.pk).order_by("time_created")
+        total_images = len(photos)
+
+        if num_image is None:
+            return Response(data={
+                "total_images": total_images,
+            }, status=status.HTTP_200_OK)
+
+        if not (0 < num_image <= total_images):
+            return Response({"detail": f"num_image in (1, ..., {total_images})"}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(data={
+            "total_images": total_images,
+            "number_image": num_image,
+            "base64_image": photos[num_image - 1].get_image_base64()
+        },
+            status=status.HTTP_200_OK)
+
     def post(self, request: Request, city_id):
         os.makedirs(os.path.dirname(os.getenv("IMAGES_PATH")), exist_ok=True)
 

@@ -9,7 +9,7 @@ from geo_db.validation import parse_valid_bbox
 def get_standard_query_param(func):
     def wrapper(cls, request: Request, *args, **kwargs):
         try:
-            type_geo_output = TypeGeoOutput(request.query_params.get("type_geo_output", TypeGeoOutput.simple.value))
+            type_geo_output = TypeGeoOutput(request.query_params.get("type_geo_output", TypeGeoOutput.get_default().value))
         except Exception as e:
             return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
 

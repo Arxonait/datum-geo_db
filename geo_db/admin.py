@@ -1,6 +1,11 @@
 from django.contrib import admin
 
-from geo_db.models import Country, City
+from geo_db.models import Country, City, Photo
+
+
+class PhotoInline(admin.TabularInline):
+    fk_name = 'city'
+    model = Photo
 
 
 class CountryAdmin(admin.ModelAdmin):
@@ -12,6 +17,7 @@ class CountryAdmin(admin.ModelAdmin):
 class CityAdmin(admin.ModelAdmin):
     list_display = ("id", "name", "country")
     list_display_links = ("id", "name")
+    inlines = [PhotoInline, ]
     search_fields = ("name",)
 
 

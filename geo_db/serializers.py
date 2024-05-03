@@ -11,7 +11,7 @@ class BaseGeoSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         self.add_fields = kwargs.pop('add_fields', set())
-        self.type_geo_output: TypeGeoOutput = kwargs.pop("type_geo_output")
+        self.type_geo_output: TypeGeoOutput = kwargs.pop("type_geo_output", TypeGeoOutput.get_default())
         super().__init__(*args, **kwargs)
 
     class Meta:
