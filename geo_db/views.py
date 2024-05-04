@@ -76,7 +76,7 @@ class CountryAPI(BaseAPI):
         limit, offset \n
         area: bool m^2 \n
         bbox x_min y_min x_max y_max \n
-        type_geo_output ['simple', 'feature'] default simple
+        type_geo_output ['simple', 'feature'] default feature
         total area: bool
         """
 
@@ -122,7 +122,7 @@ class CityAPI(BaseAPI):
         limit, offset \n
         area: bool m^2 \n
         bbox x_min y_min x_max y_max \n
-        type_geo_output ['simple', 'feature'] default simple
+        type_geo_output ['simple', 'feature'] default feature
         total area: bool
         """
 
@@ -156,9 +156,11 @@ class CityAPI(BaseAPI):
 
 class ImagesCityAPI(APIView):
 
-    def get(self, request: Request, city_id, num_image: int = None):
+    def get_images(self, city_id, num_image, method="get"):
         if city_id is None:
             return Response({"detail": "city id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        if method == "delete" and num_image is None:
+            return Response({"detail": "num image is required for delete"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             city = City.objects.get(pk=city_id)
@@ -169,17 +171,22 @@ class ImagesCityAPI(APIView):
         total_images = len(photos)
 
         if num_image is None:
-            return Response(data={
-                "total_images": total_images,
-            }, status=status.HTTP_200_OK)
+            return Response(data={"total_images": total_images}, status=status.HTTP_200_OK)
 
         if not (0 < num_image <= total_images):
             return Response({"detail": f"num_image in (1, ..., {total_images})"}, status=status.HTTP_400_BAD_REQUEST)
 
+        return photos
+
+    def get(self, request: Request, city_id, num_image: int = None):
+        result = self.get_images(city_id, num_image)
+        if isinstance(result, Response):
+            return result
+
         return Response(data={
-            "total_images": total_images,
+            "total_images": len(result),
             "number_image": num_image,
-            "base64_image": photos[num_image - 1].get_image_base64()
+            "base64_image": result[num_image - 1].get_image_base64()
         },
             status=status.HTTP_200_OK)
 
@@ -202,6 +209,13 @@ class ImagesCityAPI(APIView):
         photo.save()
         return Response(data={"status": "created"}, status=status.HTTP_201_CREATED)
 
+    def delete(self, request, city_id, num_image):
+        result = self.get_images(city_id, num_image)
+        if isinstance(result, Response):
+            return result
+        result[num_image - 1].delete() # todo
+        return Response({"detail": f"delete image city {city_id} number image {num_image}"})
+
 
 class CapitalAPI(BaseAPI):
     model: GeoModel = Capital
@@ -217,7 +231,7 @@ class CapitalAPI(BaseAPI):
         limit, offset \n
         area: bool m^2 \n
         bbox x_min y_min x_max y_max \n
-        type_geo_output ['simple', 'feature'] default simple
+        type_geo_output ['simple', 'feature'] default feature
         total area: bool
         """
 
