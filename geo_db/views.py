@@ -6,11 +6,10 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from geo_db.decorators import get_standard_query_param
+from geo_db.additional_modules.decorators import get_standard_query_param
 from geo_db.models import Country, City, Photo, GeoModel, Capital
-from geo_db.mvc_model import model_country, model_city, model_capital
 from geo_db.mvc_view import output_many_geo_json_format, output_one_geo_json_format
-from geo_db.pagination import pagination, Paginator
+from geo_db.additional_modules.pagination import pagination, Paginator
 from geo_db.serializers import CountrySerializer, CitySerializer, BaseGeoSerializer, CapitalSerializer
 
 

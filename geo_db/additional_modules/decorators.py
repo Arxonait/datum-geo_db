@@ -3,7 +3,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from geo_db.mvc_view import TypeGeoOutput
-from geo_db.validation import parse_valid_bbox
+from geo_db.additional_modules.validation import parse_valid_bbox
 
 
 def get_standard_query_param(func):
@@ -20,10 +20,6 @@ def get_standard_query_param(func):
             except Exception as e:
                 return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
 
-        # kwargs["get_params"] = {
-        #     "type_geo_output": type_geo_output,
-        #     "bbox": bbox_coords
-        # }
         return func(cls, request, *args, type_geo_output=type_geo_output, bbox=bbox_coords, **kwargs)
 
     return wrapper

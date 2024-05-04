@@ -2,7 +2,7 @@ from enum import Enum
 
 import geojson
 
-from geo_db.pagination import Paginator
+from geo_db.additional_modules.pagination import Paginator
 
 
 class TypeGeoOutput(Enum):
@@ -11,7 +11,7 @@ class TypeGeoOutput(Enum):
 
     @classmethod
     def get_default(cls):
-        return cls.simple
+        return cls.feature
 
 
 def output_many_geo_json_format(type_geo_output: TypeGeoOutput, ClassSerilizer, data, paginator: Paginator, count_data,
