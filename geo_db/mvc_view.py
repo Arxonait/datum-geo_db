@@ -2,7 +2,7 @@ from enum import Enum
 
 import geojson
 
-from geo_db.pagination import create_links_pagination_limit_offset
+from geo_db.pagination import Paginator
 
 
 class TypeGeoOutput(Enum):
@@ -14,10 +14,10 @@ class TypeGeoOutput(Enum):
         return cls.simple
 
 
-def output_many_geo_json_format(type_geo_output: TypeGeoOutput, ClassSerilizer, data, pagination_data: dict, count_data,
+def output_many_geo_json_format(type_geo_output: TypeGeoOutput, ClassSerilizer, data, paginator: Paginator, count_data,
                                 add_fields: set = None, total_area: float = None):
 
-    previous_link, next_link = create_links_pagination_limit_offset(pagination_data, count_data)
+    previous_link, next_link = paginator.get_links_pagination(count_data)
     result_data = {
         "count": count_data,
         "previous_link": previous_link,

@@ -10,7 +10,7 @@ from geo_db.decorators import get_standard_query_param
 from geo_db.models import Country, City, Photo, GeoModel, Capital
 from geo_db.mvc_model import model_country, model_city, model_capital
 from geo_db.mvc_view import output_many_geo_json_format, output_one_geo_json_format
-from geo_db.pagination import pagination
+from geo_db.pagination import pagination, Paginator
 from geo_db.serializers import CountrySerializer, CitySerializer, BaseGeoSerializer, CapitalSerializer
 
 
@@ -33,7 +33,9 @@ class BaseAPI(APIView):
                     return Response(data={"detail": f"{self.model_name} not found"}, status=status.HTTP_404_NOT_FOUND)
 
                 return func(self, *args, obj=obj, **kwargs)
+
             return wrapper
+
         return wrapper_decorator
 
     def post(self, request):
@@ -71,7 +73,7 @@ class CountryAPI(BaseAPI):
 
     @get_standard_query_param
     @pagination
-    def get(self, request: Request, obj_id=None, pagination_data=None, **kwargs):
+    def get(self, request: Request, obj_id=None, paginator: Paginator = None, **kwargs):
         """
         query_params: \n
         limit, offset \n
@@ -80,8 +82,6 @@ class CountryAPI(BaseAPI):
         type_geo_output ['simple', 'feature'] default simple
         total area: bool
         """
-        limit = pagination_data["limit"]
-        offset = pagination_data["offset"]
         type_geo_output = kwargs["get_params"]["type_geo_output"]
 
         add_fields = set()
@@ -99,14 +99,14 @@ class CountryAPI(BaseAPI):
         countries = model_country(bbox_coords=kwargs["get_params"]["bbox"])
         count_data = len(countries)
 
-        countries = countries[offset: offset + limit]
+        countries = countries[paginator.offset: paginator.offset + paginator.limit]
         total_area = None
         if request.query_params.get("total_area", "false").lower() == "true":
             total_area = sum([obj.area for obj in countries])
 
         try:
-            result_data = output_many_geo_json_format(type_geo_output, CountrySerializer, countries,
-                                                      pagination_data, count_data, add_fields, total_area)
+            result_data = output_many_geo_json_format(type_geo_output, CountrySerializer, countries, paginator,
+                                                      count_data, add_fields, total_area)
             return Response(data=result_data)
         except Exception as e:
             return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
@@ -153,8 +153,8 @@ class CityAPI(BaseAPI):
             total_area = sum([obj.area for obj in cities])
 
         try:
-            result_data = output_many_geo_json_format(type_geo_output, CitySerializer, cities,
-                                                      pagination_data, count_data, add_fields, total_area)
+            result_data = output_many_geo_json_format(type_geo_output, CitySerializer, cities, pagination_data,
+                                                      count_data, add_fields, total_area)
             return Response(data=result_data)
         except Exception as e:
             return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
@@ -250,8 +250,8 @@ class CapitalAPI(BaseAPI):
             total_area = sum([obj.area for obj in capitals])
 
         try:
-            result_data = output_many_geo_json_format(type_geo_output, CapitalSerializer, capitals,
-                                                      pagination_data, count_data, add_fields, total_area)
+            result_data = output_many_geo_json_format(type_geo_output, CapitalSerializer, capitals, pagination_data,
+                                                      count_data, add_fields, total_area)
             return Response(data=result_data)
         except Exception as e:
             return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
