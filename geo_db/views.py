@@ -73,7 +73,7 @@ class CountryAPI(BaseAPI):
 
     @get_standard_query_param
     @pagination
-    def get(self, request: Request, obj_id=None, paginator: Paginator = None, **kwargs):
+    def get(self, request: Request, obj_id=None, paginator: Paginator = None, bbox=None, type_geo_output=None, **kwargs):
         """
         query_params: \n
         limit, offset \n
@@ -82,7 +82,6 @@ class CountryAPI(BaseAPI):
         type_geo_output ['simple', 'feature'] default simple
         total area: bool
         """
-        type_geo_output = kwargs["get_params"]["type_geo_output"]
 
         add_fields = set()
         if request.query_params.get("area"):
@@ -96,7 +95,7 @@ class CountryAPI(BaseAPI):
             return Response(data=result_data)
 
         # для нескольких объектов
-        countries = Country.model_filter(bbox_coords=kwargs["get_params"]["bbox"])
+        countries = Country.model_filter(bbox_coords=bbox)
         count_data = len(countries)
 
         countries = countries[paginator.offset: paginator.offset + paginator.limit]
@@ -119,7 +118,8 @@ class CityAPI(BaseAPI):
 
     @get_standard_query_param
     @pagination
-    def get(self, request: Request, obj_id=None, country_id=None, pagination_data=None, **kwargs):
+    def get(self, request: Request, obj_id=None, country_id=None, paginator: Paginator = None,  bbox=None,
+            type_geo_output=None, **kwargs):
         """
         query_params: \n
         limit, offset \n
@@ -128,9 +128,6 @@ class CityAPI(BaseAPI):
         type_geo_output ['simple', 'feature'] default simple
         total area: bool
         """
-        limit = pagination_data["limit"]
-        offset = pagination_data["offset"]
-        type_geo_output = kwargs["get_params"]["type_geo_output"]
 
         add_fields = set()
         if request.query_params.get("area"):
@@ -144,16 +141,16 @@ class CityAPI(BaseAPI):
             return Response(data=result_data)
 
         # для нескольких объектов
-        cities = City.model_filter(bbox_coords=kwargs["get_params"]["bbox"], country_id=country_id)
+        cities = City.model_filter(bbox_coords=bbox, country_id=country_id)
         count_data = len(cities)
 
-        cities = cities[offset: offset + limit]
+        cities = cities[paginator.offset: paginator.offset + paginator.limit]
         total_area = None
         if request.query_params.get("total_area", "false").lower() == "true":
             total_area = sum([obj.area for obj in cities])
 
         try:
-            result_data = output_many_geo_json_format(type_geo_output, CitySerializer, cities, pagination_data,
+            result_data = output_many_geo_json_format(type_geo_output, CitySerializer, cities, paginator,
                                                       count_data, add_fields, total_area)
             return Response(data=result_data)
         except Exception as e:
@@ -216,7 +213,8 @@ class CapitalAPI(BaseAPI):
 
     @get_standard_query_param
     @pagination
-    def get(self, request: Request, obj_id=None, country_id=None, pagination_data=None, **kwargs):
+    def get(self, request: Request, obj_id=None, country_id=None, paginator: Paginator = None,  bbox=None,
+            type_geo_output=None, **kwargs):
         """
         query_params: \n
         limit, offset \n
@@ -225,9 +223,6 @@ class CapitalAPI(BaseAPI):
         type_geo_output ['simple', 'feature'] default simple
         total area: bool
         """
-        limit = pagination_data["limit"]
-        offset = pagination_data["offset"]
-        type_geo_output = kwargs["get_params"]["type_geo_output"]
 
         add_fields = set()
         if request.query_params.get("area"):
@@ -241,16 +236,16 @@ class CapitalAPI(BaseAPI):
             return Response(data=result_data)
 
         # для нескольких объектов
-        capitals = Capital.model_filter(bbox_coords=kwargs["get_params"]["bbox"])
+        capitals = Capital.model_filter(bbox_coords=bbox)
         count_data = len(capitals)
 
-        capitals = capitals[offset: offset + limit]
+        capitals = capitals[paginator.offset: paginator.offset + paginator.limit]
         total_area = None
         if request.query_params.get("total_area", "false").lower() == "true":
             total_area = sum([obj.area for obj in capitals])
 
         try:
-            result_data = output_many_geo_json_format(type_geo_output, CapitalSerializer, capitals, pagination_data,
+            result_data = output_many_geo_json_format(type_geo_output, CapitalSerializer, capitals, paginator,
                                                       count_data, add_fields, total_area)
             return Response(data=result_data)
         except Exception as e:

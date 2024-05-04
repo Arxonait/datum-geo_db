@@ -20,10 +20,10 @@ def get_standard_query_param(func):
             except Exception as e:
                 return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
 
-        kwargs["get_params"] = {
-            "type_geo_output": type_geo_output,
-            "bbox": bbox_coords
-        }
-        return func(cls, request, *args, **kwargs)
+        # kwargs["get_params"] = {
+        #     "type_geo_output": type_geo_output,
+        #     "bbox": bbox_coords
+        # }
+        return func(cls, request, *args, type_geo_output=type_geo_output, bbox=bbox_coords, **kwargs)
 
     return wrapper
