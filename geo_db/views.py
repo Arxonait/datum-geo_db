@@ -89,14 +89,14 @@ class CountryAPI(BaseAPI):
             add_fields.add("area")
 
         if obj_id is not None:
-            countries = model_country(country_id=obj_id)
+            countries = Country.model_filter(country_id=obj_id)
             if len(countries) == 0:
                 return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
             result_data = output_one_geo_json_format(type_geo_output, CountrySerializer, countries, add_fields)
             return Response(data=result_data)
 
         # для нескольких объектов
-        countries = model_country(bbox_coords=kwargs["get_params"]["bbox"])
+        countries = Country.model_filter(bbox_coords=kwargs["get_params"]["bbox"])
         count_data = len(countries)
 
         countries = countries[paginator.offset: paginator.offset + paginator.limit]
@@ -137,14 +137,14 @@ class CityAPI(BaseAPI):
             add_fields.add("area")
 
         if obj_id is not None:
-            cities = model_city(city_id=obj_id)
+            cities = City.model_filter(city_id=obj_id)
             if len(cities) == 0:
                 return Response(data={"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
             result_data = output_one_geo_json_format(type_geo_output, CitySerializer, cities, add_fields)
             return Response(data=result_data)
 
         # для нескольких объектов
-        cities = model_city(bbox_coords=kwargs["get_params"]["bbox"], country_id=country_id)
+        cities = City.model_filter(bbox_coords=kwargs["get_params"]["bbox"], country_id=country_id)
         count_data = len(cities)
 
         cities = cities[offset: offset + limit]
@@ -234,14 +234,14 @@ class CapitalAPI(BaseAPI):
             add_fields.add("area")
 
         if obj_id is not None or country_id is not None:
-            capitals = model_capital(capital_id=obj_id, country_id=country_id)
+            capitals = Capital.model_filter(capital_id=obj_id, country_id=country_id)
             if len(capitals) == 0:
                 return Response(data={"detail": "capital not found"}, status=status.HTTP_404_NOT_FOUND)
             result_data = output_one_geo_json_format(type_geo_output, CapitalSerializer, capitals, add_fields)
             return Response(data=result_data)
 
         # для нескольких объектов
-        capitals = model_capital(bbox_coords=kwargs["get_params"]["bbox"])
+        capitals = Capital.model_filter(bbox_coords=kwargs["get_params"]["bbox"])
         count_data = len(capitals)
 
         capitals = capitals[offset: offset + limit]
@@ -262,7 +262,7 @@ class CapitalAPI(BaseAPI):
     def convert_country_to_capital(func):
         def wrapper(self, *args, obj_id=None, country_id=None, **kwargs):
             if country_id:
-                capitals = model_capital(country_id=country_id)
+                capitals = Capital.model_filter(country_id=country_id)
                 if len(capitals) != 1:
                     return Response(data={"detail": f"{self.model_name} not found"}, status=status.HTTP_404_NOT_FOUND)
                 obj_id = capitals[0].pk

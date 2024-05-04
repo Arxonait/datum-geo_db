@@ -3,6 +3,7 @@ import os
 import uuid
 
 from django.contrib.gis.db import models
+from django.contrib.gis.geos import Polygon
 from django.core.files.base import ContentFile
 from osgeo import ogr
 from pyproj import Transformer
@@ -45,6 +46,18 @@ class Country(GeoModel):
         verbose_name = "Страна"
         verbose_name_plural = "Страны"
 
+    @classmethod
+    def model_filter(cls, country_id: int = None, bbox_coords: list[float] = None):
+        if country_id:
+            return cls.objects.filter(pk=country_id)
+
+        filter_data = {}
+        if bbox_coords:
+            bbox_polygon = Polygon.from_bbox(bbox_coords)
+            filter_data["coordinates__within"] = bbox_polygon
+
+        return cls.objects.filter(**filter_data)
+
 
 class City(GeoModel):
     description = models.TextField()
@@ -54,9 +67,41 @@ class City(GeoModel):
         verbose_name = "Город"
         verbose_name_plural = "Города"
 
+    @classmethod
+    def model_filter(cls, city_id: int = None, bbox_coords: list[float] = None, country_id: int = None):
+        if city_id:
+            return cls.objects.filter(pk=city_id)
+
+        filter_data = {}
+        if bbox_coords:
+            bbox_polygon = Polygon.from_bbox(bbox_coords)
+            filter_data["coordinates__within"] = bbox_polygon
+        if country_id:
+            filter_data["country_id"] = country_id
+
+        return cls.objects.filter(**filter_data)
+
 
 class Capital(GeoModel):
     country = models.OneToOneField("Country", on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name = "Столица"
+        verbose_name_plural = "Столицы"
+
+    @classmethod
+    def model_filter(cls, capital_id: int = None, country_id: int = None, bbox_coords: list[float] = None):
+        if country_id:
+            return cls.objects.filter(country_id=country_id)
+        if capital_id:
+            return cls.objects.filter(pk=capital_id)
+
+        filter_data = {}
+        if bbox_coords:
+            bbox_polygon = Polygon.from_bbox(bbox_coords)
+            filter_data["coordinates__within"] = bbox_polygon
+
+        return cls.objects.filter(**filter_data)
 
 
 class Photo(models.Model):
