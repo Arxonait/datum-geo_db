@@ -19,24 +19,21 @@ class BaseAPI(APIView):
     model_name: str = None
     serializer: BaseGeoSerializer = None
 
-    def get_target_id_resource(name_id: str):
-        def wrapper_decorator(func):
-            @wraps(func)
-            def wrapper(self, *args, **kwargs):
-                obj_id = kwargs.get(name_id)
-                if obj_id is None:
-                    return Response(data={"detail": f"{self.model_name} id is required"},
-                                    status=status.HTTP_400_BAD_REQUEST)
-                try:
-                    obj = self.model.objects.get(pk=obj_id)
-                except:
-                    return Response(data={"detail": f"{self.model_name} not found"}, status=status.HTTP_404_NOT_FOUND)
+    def get_target_id_resource(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            obj_id = kwargs.get(self.model_name + "_id")
+            if obj_id is None:
+                return Response(data={"detail": f"{self.model_name} id is required"},
+                                status=status.HTTP_400_BAD_REQUEST)
+            try:
+                obj = self.model.objects.get(pk=obj_id)
+            except:
+                return Response(data={"detail": f"{self.model_name} not found"}, status=status.HTTP_404_NOT_FOUND)
 
-                return func(self, *args, obj=obj, **kwargs)
+            return func(self, *args, obj=obj, **kwargs)
 
-            return wrapper
-
-        return wrapper_decorator
+        return wrapper
 
     def post(self, request):
         obj = self.serializer(data=request.data)
@@ -49,17 +46,17 @@ class BaseAPI(APIView):
 
         return Response(data=obj.data, status=status.HTTP_201_CREATED)
 
-    @get_target_id_resource(name_id="obj_id")
+    @get_target_id_resource
     def patch(self, request, obj, partial=True, **kwargs):
         obj_data_update = self.serializer(data=request.data, instance=obj, partial=partial)
         obj_data_update.is_valid(raise_exception=True)
         obj_data_update.save()
         return Response(data=obj_data_update.data, status=status.HTTP_200_OK)
 
-    def put(self, request, obj_id=None):
-        return self.patch(request, obj_id, partial=False)
+    def put(self, request, **kwargs):
+        return self.patch(request, partial=False, **kwargs)
 
-    @get_target_id_resource(name_id="obj_id")
+    @get_target_id_resource
     def delete(self, request: Request, obj, **kwargs):
         obj_id = obj.pk
         obj.delete()
@@ -73,7 +70,8 @@ class CountryAPI(BaseAPI):
 
     @get_standard_query_param
     @pagination
-    def get(self, request: Request, obj_id=None, paginator: Paginator = None, bbox=None, type_geo_output=None, **kwargs):
+    def get(self, request: Request, country_id=None, paginator: Paginator = None, bbox=None, type_geo_output=None,
+            **kwargs):
         """
         query_params: \n
         limit, offset \n
@@ -87,8 +85,8 @@ class CountryAPI(BaseAPI):
         if request.query_params.get("area"):
             add_fields.add("area")
 
-        if obj_id is not None:
-            countries = Country.model_filter(country_id=obj_id)
+        if country_id is not None:
+            countries = Country.model_filter(country_id=country_id)
             if len(countries) == 0:
                 return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
             result_data = output_one_geo_json_format(type_geo_output, CountrySerializer, countries, add_fields)
@@ -118,7 +116,7 @@ class CityAPI(BaseAPI):
 
     @get_standard_query_param
     @pagination
-    def get(self, request: Request, obj_id=None, country_id=None, paginator: Paginator = None,  bbox=None,
+    def get(self, request: Request, city_id=None, country_id=None, paginator: Paginator = None, bbox=None,
             type_geo_output=None, **kwargs):
         """
         query_params: \n
@@ -133,8 +131,8 @@ class CityAPI(BaseAPI):
         if request.query_params.get("area"):
             add_fields.add("area")
 
-        if obj_id is not None:
-            cities = City.model_filter(city_id=obj_id)
+        if city_id is not None:
+            cities = City.model_filter(city_id=city_id)
             if len(cities) == 0:
                 return Response(data={"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
             result_data = output_one_geo_json_format(type_geo_output, CitySerializer, cities, add_fields)
@@ -213,7 +211,7 @@ class CapitalAPI(BaseAPI):
 
     @get_standard_query_param
     @pagination
-    def get(self, request: Request, obj_id=None, country_id=None, paginator: Paginator = None,  bbox=None,
+    def get(self, request: Request, capital_id=None, country_id=None, paginator: Paginator = None, bbox=None,
             type_geo_output=None, **kwargs):
         """
         query_params: \n
@@ -228,8 +226,8 @@ class CapitalAPI(BaseAPI):
         if request.query_params.get("area"):
             add_fields.add("area")
 
-        if obj_id is not None or country_id is not None:
-            capitals = Capital.model_filter(capital_id=obj_id, country_id=country_id)
+        if capital_id is not None or country_id is not None:
+            capitals = Capital.model_filter(capital_id=capital_id, country_id=country_id)
             if len(capitals) == 0:
                 return Response(data={"detail": "capital not found"}, status=status.HTTP_404_NOT_FOUND)
             result_data = output_one_geo_json_format(type_geo_output, CapitalSerializer, capitals, add_fields)
@@ -255,25 +253,25 @@ class CapitalAPI(BaseAPI):
         return super().post(request)
 
     def convert_country_to_capital(func):
-        def wrapper(self, *args, obj_id=None, country_id=None, **kwargs):
+        def wrapper(self, *args, capital_id=None, country_id=None, **kwargs):
             if country_id:
                 capitals = Capital.model_filter(country_id=country_id)
                 if len(capitals) != 1:
                     return Response(data={"detail": f"{self.model_name} not found"}, status=status.HTTP_404_NOT_FOUND)
-                obj_id = capitals[0].pk
-            print(kwargs)
-            return func(self, *args, obj_id=obj_id, **kwargs)
+                capital_id = capitals[0].pk
+            kwargs["capital_id"] = capital_id
+            return func(self, *args, **kwargs)
 
         return wrapper
 
     @convert_country_to_capital
-    def put(self, request, obj_id):
-        return self.patch(request, obj_id=obj_id, partial=False)
+    def put(self, request, capital_id):
+        return self.patch(request, capital_id=capital_id, partial=False)
 
     @convert_country_to_capital
-    def patch(self, request, obj_id, partial=True):
-        return super().patch(request, obj_id, partial=partial)
+    def patch(self, request, capital_id, partial=True):
+        return super().patch(request, capital_id, partial=partial)
 
     @convert_country_to_capital
-    def delete(self, request, obj_id):
-        return super().delete(request, obj_id)
+    def delete(self, request, capital_id):
+        return super().delete(request, capital_id)
