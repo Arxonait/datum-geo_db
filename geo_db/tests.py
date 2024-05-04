@@ -6,6 +6,9 @@ from django.test import TestCase
 from geo_db.models import Country, City
 
 URL = "http://127.0.0.1:8000/api/"
+COORDINATE_TEST = ("POLYGON((29.62999999999999 46.84000000001423, 29.62999999999999 46.84160000001423, "
+                   "29.63849999999999 46.84160000001423, 29.63849999999999 46.84000000001423, 29.62999999999999 "
+                   "46.84000000001423))")
 
 
 # Create your tests here.
@@ -24,7 +27,7 @@ class MyEndpointCountry(TestCase):
                  country=self.countries[row["country_id"] - 1]).save()
 
         self.bbox_data = []
-        table_bbox = pandas.read_csv(r"bbox.csv", delimiter=",")
+        table_bbox = pandas.read_csv(r"bbox.csv", delimiter=";")
         for index, row in table_bbox[table_bbox["type"] == "country"].iterrows():
             self.bbox_data.append((row["bbox"], len(row["obj"].split(",") if isinstance(row["obj"], str) else "")))
 
@@ -33,9 +36,7 @@ class MyEndpointCountry(TestCase):
 
         data = {
             "name": "test88",
-            "coordinates": "POLYGON((29.62999999999999 46.84000000001423, 29.62999999999999 46.84160000001423, "
-                           "29.63849999999999 46.84160000001423, 29.63849999999999 46.84000000001423, "
-                           "29.62999999999999 46.84000000001423))"
+            "coordinates": COORDINATE_TEST
         }
 
         response = self.client.post(url, data=data)
@@ -69,18 +70,10 @@ class MyEndpointCountry(TestCase):
 class MyEndpointImage(TestCase):
     def setUp(self):
         country = Country(name="testtt",
-                          coordinates="POLYGON((29.62999999999999 46.84000000001423, 29.62999999999999 "
-                                      "46.84160000001423,"
-                                      "29.63849999999999 46.84160000001423, 29.63849999999999 46.84000000001423, "
-                                      "29.62999999999999 46.84000000001423))")
+                          coordinates=COORDINATE_TEST)
         country.save()
 
-        city = City(name="testtt",
-                    coordinates="POLYGON((29.62999999999999 46.84000000001423, 29.62999999999999 46.84160000001423, "
-                                "29.63849999999999 46.84160000001423, 29.63849999999999 46.84000000001423, "
-                                "29.62999999999999 46.84000000001423))",
-                    description="foo",
-                    country=country)
+        city = City(name="testtt", coordinates=COORDINATE_TEST,  description="foo", country=country)
         city.save()
         self.city = city
 
