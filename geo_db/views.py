@@ -74,7 +74,6 @@ class CountryAPI(BaseAPI):
             **kwargs):
         """
         query_params: \n
-        limit, offset \n
         area: bool m^2 \n
         bbox x_min y_min x_max y_max \n
         type_geo_output ['simple', 'feature'] default feature \n
@@ -120,7 +119,6 @@ class CityAPI(BaseAPI):
             type_geo_output=None, **kwargs):
         """
         query_params: \n
-        limit, offset \n
         area: bool m^2 \n
         bbox x_min y_min x_max y_max \n
         type_geo_output ['simple', 'feature'] default feature \n
@@ -229,7 +227,6 @@ class CapitalAPI(BaseAPI):
             type_geo_output=None, **kwargs):
         """
         query_params: \n
-        limit, offset \n
         area: bool m^2 \n
         bbox x_min y_min x_max y_max \n
         type_geo_output ['simple', 'feature'] default feature \n
