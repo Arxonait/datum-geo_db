@@ -126,3 +126,8 @@ class Photo(models.Model):
 
     def __get_new_image_name(self):
         return f'{self.city.id}_{str(uuid.uuid4())[:7]}.jpg'
+
+    def delete(self, *args, **kwargs):
+        # Удаление связанного файла перед удалением объекта
+        self.image.delete()
+        super().delete(*args, **kwargs)

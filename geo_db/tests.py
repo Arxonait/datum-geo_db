@@ -101,3 +101,8 @@ class MyEndpointImage(TestCase):
             file.write(binary_data)
 
         print("test_endpoint_images --- pass --- image download")
+
+        response = self.client.delete(url + "/1")
+        self.assertContains(response, "delete image", status_code=200)
+
+        print("test_endpoint_images --- pass --- image deleted")

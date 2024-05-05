@@ -213,7 +213,7 @@ class ImagesCityAPI(APIView):
         result = self.get_images(city_id, num_image)
         if isinstance(result, Response):
             return result
-        result[num_image - 1].delete() # todo
+        result[num_image - 1].delete()
         return Response({"detail": f"delete image city {city_id} number image {num_image}"})
 
 
