@@ -64,9 +64,9 @@ class PaginatorLimitOffset(Paginator):
         return "limit", "offset"
 
     def _parse_value_pagination(self):
-        limit = self._request.query_params.get("limit", self._set_default_limit())
-        offset = self._request.query_params.get("offset", self._set_default_offset())
-        if limit <= 0 or offset < 0 or not isinstance(limit, int) or not isinstance(offset, int):
+        limit = int(self._request.query_params.get("limit", self._set_default_limit()))
+        offset = int(self._request.query_params.get("offset", self._set_default_offset()))
+        if limit <= 0 or offset < 0:
             limit = self._set_default_limit()
             offset = self._set_default_offset()
         return limit, offset
@@ -91,8 +91,8 @@ class PaginatorPage(Paginator):
         return ("page", )
 
     def _parse_value_pagination(self):
-        page = self._request.query_params.get("page", 1)
-        if page <= 0 or not isinstance(page, int):
+        page = int(self._request.query_params.get("page", 1))
+        if page <= 0:
             page = 1
         return page
 
@@ -105,10 +105,10 @@ class PaginatorPage(Paginator):
 
     def get_links_pagination(self, count_data: int) -> (str, str):
         next_link = None
-        if self.offset + self.limit <= count_data:
-            next_link = self._get_url_without_pagination() + f"page={self.offset/self.limit + 1}"
+        if self.offset + self.limit < count_data:
+            next_link = self._get_url_without_pagination() + f"page={int(self.offset/self.limit + 2)}"
 
         previous_link = None
         if self.offset != 0:
-            previous_link = self._get_url_without_pagination() + f"page={self.offset/self.limit - 1}"
+            previous_link = self._get_url_without_pagination() + f"page={int(self.offset/self.limit)}"
         return previous_link, next_link

@@ -35,5 +35,6 @@ def output_many_geo_json_format(type_geo_output: TypeGeoOutput, ClassSerilizer, 
     return result_data
 
 
-def output_one_geo_json_format(type_geo_output: TypeGeoOutput, ClassSerilizer, data, add_fields: set = None):
-    return ClassSerilizer(data, many=True, add_fields=add_fields, type_geo_output=type_geo_output).data[0]
+def output_one_geo_json_format(type_geo_output: TypeGeoOutput, ClassSerilizer, data: list, add_fields: set = None):
+    data = data[0]
+    return ClassSerilizer(data, many=False, add_fields=add_fields, type_geo_output=type_geo_output).data
