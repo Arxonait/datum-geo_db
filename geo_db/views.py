@@ -19,12 +19,13 @@ class BaseAPI(APIView):
     serializer: BaseGeoSerializer = None
 
     def get_target_id_resource(func):
+        """Находит и возвращает объект \n
+        Требования к сслыкам --- имя ресурса + _id"""
         @wraps(func)
         def wrapper(self, *args, **kwargs):
             obj_id = kwargs.get(self.model_name + "_id")
             if obj_id is None:
-                return Response(data={"detail": f"{self.model_name} id is required"},
-                                status=status.HTTP_400_BAD_REQUEST)
+                return Response(data={"detail": f"{self.model_name} id is required"}, status=status.HTTP_400_BAD_REQUEST)
             try:
                 obj = self.model.objects.get(pk=obj_id)
             except:
@@ -76,7 +77,7 @@ class CountryAPI(BaseAPI):
         limit, offset \n
         area: bool m^2 \n
         bbox x_min y_min x_max y_max \n
-        type_geo_output ['simple', 'feature'] default feature
+        type_geo_output ['simple', 'feature'] default feature \n
         total area: bool
         """
 
@@ -122,7 +123,7 @@ class CityAPI(BaseAPI):
         limit, offset \n
         area: bool m^2 \n
         bbox x_min y_min x_max y_max \n
-        type_geo_output ['simple', 'feature'] default feature
+        type_geo_output ['simple', 'feature'] default feature \n
         total area: bool
         """
 
@@ -231,7 +232,7 @@ class CapitalAPI(BaseAPI):
         limit, offset \n
         area: bool m^2 \n
         bbox x_min y_min x_max y_max \n
-        type_geo_output ['simple', 'feature'] default feature
+        type_geo_output ['simple', 'feature'] default feature \n
         total area: bool
         """
 
@@ -263,28 +264,29 @@ class CapitalAPI(BaseAPI):
             return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request, country_id=None):
+        """При создании столиц данные берутся только с тела запроса"""
         return super().post(request)
 
     def convert_country_to_capital(func):
+        """Конвертирует id страны в id столицы"""
         def wrapper(self, *args, capital_id=None, country_id=None, **kwargs):
             if country_id:
                 capitals = Capital.model_filter(country_id=country_id)
                 if len(capitals) != 1:
                     return Response(data={"detail": f"{self.model_name} not found"}, status=status.HTTP_404_NOT_FOUND)
                 capital_id = capitals[0].pk
-            kwargs["capital_id"] = capital_id
-            return func(self, *args, **kwargs)
+            return func(self, *args, **kwargs, capital_id=capital_id)
 
         return wrapper
 
     @convert_country_to_capital
-    def put(self, request, capital_id):
-        return self.patch(request, capital_id=capital_id, partial=False)
+    def put(self, request, **kwargs):
+        return self.patch(request, partial=False, **kwargs)
 
     @convert_country_to_capital
-    def patch(self, request, capital_id, partial=True):
-        return super().patch(request, capital_id, partial=partial)
+    def patch(self, request, partial=True, **kwargs):
+        return super().patch(request, partial=partial, **kwargs)
 
     @convert_country_to_capital
-    def delete(self, request, capital_id):
-        return super().delete(request, capital_id)
+    def delete(self, request, **kwargs):
+        return super().delete(request, **kwargs)

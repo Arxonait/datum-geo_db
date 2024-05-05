@@ -7,6 +7,7 @@ from geo_db.additional_modules.validation import parse_valid_bbox
 
 
 def get_standard_query_param(func):
+    """Возвращает type_geo_output: TypeGeoOutput и bbox: list[float, ..., float]"""
     def wrapper(cls, request: Request, *args, **kwargs):
         try:
             type_geo_output = TypeGeoOutput(request.query_params.get("type_geo_output", TypeGeoOutput.get_default().value))
