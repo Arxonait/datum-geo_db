@@ -16,7 +16,7 @@ from geo_db.models import Country, City, Photo, GeoModel, Capital
 from geo_db.mvc_view import output_many_geo_json_format, output_one_geo_json_format
 from geo_db.additional_modules.pagination import pagination, Paginator, PaginatorLimitOffset, get_paginator
 from geo_db.serializers import CountrySerializer, CitySerializer, BaseGeoSerializer, CapitalSerializer, \
-    NewCountySerializer, FeatureCollectionSerializer
+    NewCountySerializer, FeatureCollectionSerializer, NewCitySerializer
 
 
 class BaseAPI(APIView):
@@ -27,11 +27,13 @@ class BaseAPI(APIView):
     def get_target_id_resource(func):
         """Находит и возвращает объект \n
         Требования к сслыкам --- имя ресурса + _id"""
+
         @wraps(func)
         def wrapper(self, *args, **kwargs):
             obj_id = kwargs.get(self.model_name + "_id")
             if obj_id is None:
-                return Response(data={"detail": f"{self.model_name} id is required"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(data={"detail": f"{self.model_name} id is required"},
+                                status=status.HTTP_400_BAD_REQUEST)
             try:
                 obj = self.model.objects.get(pk=obj_id)
             except:
@@ -69,19 +71,13 @@ class BaseAPI(APIView):
         return Response({"detail": f"delete {self.model_name} {obj_id}"})
 
 
-class CountryViewSet(viewsets.ModelViewSet):
-    # todo  type_geo_output ['simple', 'feature'] default feature
-    queryset = Country.objects.all()
-    serializer_class: CountrySerializer = NewCountySerializer
-    filter_backends = [django_filters.rest_framework.DjangoFilterBackend]
-    filterset_class = CountryFilter
-
+class BaseViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, *args, **kwargs):
-        #instance = self.get_object()
+        # instance = self.get_object()
         try:
             instance = self.get_queryset().get(pk=kwargs["pk"])
         except Exception:
-            raise Http404("Country matching query does not exist")
+            raise Http404(f"{self.name_model} matching query does not exist")
         feature = self.serializer_class(instance, context=self.get_serializer_context()).data
         return Response(feature)
 
@@ -94,62 +90,34 @@ class CountryViewSet(viewsets.ModelViewSet):
                                                                                 request.query_params)
         return Response(feature_collection)
 
+
+class CountryViewSet(BaseViewSet):
+    # todo  type_geo_output ['simple', 'feature'] default feature
+    queryset = Country.objects.all()
+    serializer_class: CountrySerializer = NewCountySerializer
+    filter_backends = [django_filters.rest_framework.DjangoFilterBackend]
+    filterset_class = CountryFilter
+    name_model = "Country"
+
     # Отдаёт список городов страны
     @action(detail=True, methods=['GET'])
     def cities(self, request: Request, pk: int):
         paginator = get_paginator(request)
         queryset = City.objects.all().filter(country_id=pk)
         queryset = CityFilter(data=request.query_params, queryset=queryset).qs
-        feature_collection = FeatureCollectionSerializer.get_feature_collection(queryset, CitySerializer,
+        feature_collection = FeatureCollectionSerializer.get_feature_collection(queryset, NewCitySerializer,
                                                                                 self.get_serializer_context(),
                                                                                 paginator,
                                                                                 request.query_params)
         return Response(feature_collection)
 
 
-class CityAPI(BaseAPI):
-    model: GeoModel = City
-    model_name: str = "city"
-    serializer: BaseGeoSerializer = CitySerializer
-
-    @get_standard_query_param
-    @pagination
-    def get(self, request: Request, city_id=None, paginator: Paginator = None, bbox=None,
-            type_geo_output=None, **kwargs):
-        """
-        query_params: \n
-        area: bool m^2 \n
-        bbox x_min y_min x_max y_max \n
-        type_geo_output ['simple', 'feature'] default feature \n
-        total area: bool
-        """
-
-        add_fields = set()
-        if request.query_params.get("area"):
-            add_fields.add("area")
-
-        if city_id is not None:
-            cities = City.model_filter(city_id=city_id)
-            if len(cities) == 0:
-                return Response(data={"detail": "city not found"}, status=status.HTTP_404_NOT_FOUND)
-            result_data = output_one_geo_json_format(type_geo_output, CitySerializer, cities, add_fields)
-            return Response(data=result_data)
-
-        # для нескольких объектов
-        cities = City.model_filter(bbox_coords=bbox)
-        count_data = len(cities)
-
-        cities = cities[paginator.offset: paginator.offset + paginator.limit]
-        total_area = None
-        if request.query_params.get("total_area", "false").lower() == "true":
-            total_area = sum([obj.area for obj in cities])
-
-        try:
-            result_data = output_many_geo_json_format(type_geo_output, CitySerializer, cities, paginator,
-                                                      count_data, add_fields, total_area)
-            return Response(data=result_data)
-        except Exception as e:
-            return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
+class CityViewSet(BaseViewSet):
+    queryset = City.objects.all()
+    serializer_class: NewCitySerializer = NewCitySerializer
+    filter_backends = [django_filters.rest_framework.DjangoFilterBackend]
+    filterset_class = CityFilter
+    name_model = "City"
 
 
 class ImagesCityAPI(APIView):
@@ -265,6 +233,7 @@ class CapitalAPI(BaseAPI):
 
     def convert_country_to_capital(func):
         """Конвертирует id страны в id столицы"""
+
         def wrapper(self, *args, capital_id=None, country_id=None, **kwargs):
             if country_id:
                 capitals = Capital.model_filter(country_id=country_id)

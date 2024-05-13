@@ -80,16 +80,9 @@ class CapitalSerializer(BaseGeoSerializer):
         type = "capital"
 
 
-
-class NewCountySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Country
-        fields = ("id", "name", "coordinates", "area")
-        id_field = "id"
-        geo_field = "coordinates"
-
+class NewGeoSerializerModel(serializers.ModelSerializer):
     def get_fields(self):
-        fields = super(NewCountySerializer, self).get_fields()
+        fields = super().get_fields()
         request: Request = self.context.get("request")
         if request is None:
             fields.pop("area")
@@ -107,14 +100,34 @@ class NewCountySerializer(serializers.ModelSerializer):
             if target_field not in (self.Meta.id_field, self.Meta.geo_field):
                 try:
                     value = instance.__getattribute__(target_field)
+                    if isinstance(value, Model):
+                        value = value.id
                     properties[target_field] = value
                 except AttributeError as e:
-                    print(f"LOG --- serializers country --- {e.args[0]}")
+                    print(f"LOG --- serializers geo model --- {e.args[0]}")
 
         cords = geojson.Polygon(instance.coordinates.coords[0])
 
         result = geojson.Feature(id=instance.pk, geometry=cords, properties=properties)
         return result
+
+
+class NewCountySerializer(NewGeoSerializerModel):
+    class Meta:
+        model = Country
+        fields = ("id", "name", "coordinates", "area")
+        id_field = "id"
+        geo_field = "coordinates"
+
+
+class NewCitySerializer(NewGeoSerializerModel):
+    class Meta:
+        model = City
+        fields = ("id", "name", "coordinates", "area", "description", "country")
+        id_field = "id"
+        geo_field = "coordinates"
+
+
 
 
 class FeatureCollectionSerializer:

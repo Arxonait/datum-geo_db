@@ -4,15 +4,16 @@ from geo_db.views import *
 
 router = routers.SimpleRouter()
 router.register(r"countries", CountryViewSet)
+router.register(r"cities", CityViewSet)
 
 urlpatterns = [
     # path("countries/", CountryAPI.as_view()),
     # path("countries/<int:country_id>", CountryAPI.as_view()),
-    path("", include(router.urls), name="countries"),
+    path("", include(router.urls)),
 
 
-    path("cities/", CityAPI.as_view()),
-    path("cities/<int:city_id>", CityAPI.as_view()),
+    # path("cities/", CityAPI.as_view()),
+    # path("cities/<int:city_id>", CityAPI.as_view()),
     # path("countries/<int:country_id>/cities", CityAPI.as_view()),
 
     path("cities/<int:city_id>/images", ImagesCityAPI.as_view()),
