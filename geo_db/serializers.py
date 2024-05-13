@@ -1,5 +1,6 @@
 from django.db.models import Model
 from rest_framework import serializers
+from rest_framework.request import Request
 
 from geo_db.models import Country, City, GeoModel, Capital
 import geojson
@@ -77,3 +78,56 @@ class CapitalSerializer(BaseGeoSerializer):
         id_field = "id"
         geo_field = "coordinates"
         type = "capital"
+
+
+
+class NewCountySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Country
+        fields = ("id", "name", "coordinates", "area")
+        id_field = "id"
+        geo_field = "coordinates"
+
+    def get_fields(self):
+        fields = super(NewCountySerializer, self).get_fields()
+        request: Request = self.context.get("request")
+        if request is None:
+            fields.pop("area")
+            return fields
+
+        if "area" not in request.query_params:
+            fields.pop("area")
+        return fields
+
+    def to_representation(self, instance):
+        target_fields = self.get_fields()
+
+        properties = {}
+        for target_field in target_fields:
+            if target_field not in (self.Meta.id_field, self.Meta.geo_field):
+                try:
+                    value = instance.__getattribute__(target_field)
+                    properties[target_field] = value
+                except AttributeError as e:
+                    print(f"LOG --- serializers country --- {e.args[0]}")
+
+        cords = geojson.Polygon(instance.coordinates.coords[0])
+
+        result = geojson.Feature(id=instance.pk, geometry=cords, properties=properties)
+        return result
+
+
+class FeatureCollectionSerializer:
+    @classmethod
+    def get_feature_collection(cls, queryset, serializer, serializer_context, paginator, query_params):
+        count_data = queryset.count()
+        data = queryset[paginator.get_start():paginator.get_end()]
+        features = [serializer(instance, context=serializer_context).data for instance in data]
+        feature_collection = geojson.FeatureCollection(features)
+
+        if query_params.get("total_area"):
+            total_area = sum([obj.area for obj in data])
+            feature_collection["total_area"] = total_area
+
+        feature_collection.update(paginator.get_pagination_data(count_data))
+        return feature_collection

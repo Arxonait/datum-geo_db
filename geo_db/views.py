@@ -1,16 +1,22 @@
 import os
 from functools import wraps
 
-from rest_framework import status
+import django_filters
+import geojson
+from django.http import Http404
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from geo_db.additional_modules.decorators import get_standard_query_param
+from geo_db.filters import CountryFilter, CityFilter
 from geo_db.models import Country, City, Photo, GeoModel, Capital
 from geo_db.mvc_view import output_many_geo_json_format, output_one_geo_json_format
-from geo_db.additional_modules.pagination import pagination, Paginator
-from geo_db.serializers import CountrySerializer, CitySerializer, BaseGeoSerializer, CapitalSerializer
+from geo_db.additional_modules.pagination import pagination, Paginator, PaginatorLimitOffset, get_paginator
+from geo_db.serializers import CountrySerializer, CitySerializer, BaseGeoSerializer, CapitalSerializer, \
+    NewCountySerializer, FeatureCollectionSerializer
 
 
 class BaseAPI(APIView):
@@ -63,49 +69,42 @@ class BaseAPI(APIView):
         return Response({"detail": f"delete {self.model_name} {obj_id}"})
 
 
-class CountryAPI(BaseAPI):
-    model: GeoModel = Country
-    model_name: str = "country"
-    serializer: BaseGeoSerializer = CountrySerializer
+class CountryViewSet(viewsets.ModelViewSet):
+    # todo  type_geo_output ['simple', 'feature'] default feature
+    queryset = Country.objects.all()
+    serializer_class: CountrySerializer = NewCountySerializer
+    filter_backends = [django_filters.rest_framework.DjangoFilterBackend]
+    filterset_class = CountryFilter
 
-    @get_standard_query_param
-    @pagination
-    def get(self, request: Request, country_id=None, paginator: Paginator = None, bbox=None, type_geo_output=None,
-            **kwargs):
-        """
-        query_params: \n
-        area: bool m^2 \n
-        bbox x_min y_min x_max y_max \n
-        type_geo_output ['simple', 'feature'] default feature \n
-        total area: bool
-        """
-
-        add_fields = set()
-        if request.query_params.get("area"):
-            add_fields.add("area")
-
-        if country_id is not None:
-            countries = Country.model_filter(country_id=country_id)
-            if len(countries) == 0:
-                return Response(data={"detail": "country not found"}, status=status.HTTP_404_NOT_FOUND)
-            result_data = output_one_geo_json_format(type_geo_output, CountrySerializer, countries, add_fields)
-            return Response(data=result_data)
-
-        # для нескольких объектов
-        countries = Country.model_filter(bbox_coords=bbox)
-        count_data = len(countries)
-
-        countries = countries[paginator.offset: paginator.offset + paginator.limit]
-        total_area = None
-        if request.query_params.get("total_area", "false").lower() == "true":
-            total_area = sum([obj.area for obj in countries])
-
+    def retrieve(self, request, *args, **kwargs):
+        #instance = self.get_object()
         try:
-            result_data = output_many_geo_json_format(type_geo_output, CountrySerializer, countries, paginator,
-                                                      count_data, add_fields, total_area)
-            return Response(data=result_data)
-        except Exception as e:
-            return Response(data={"detail": e.args[0]}, status=status.HTTP_400_BAD_REQUEST)
+            instance = self.get_queryset().get(pk=kwargs["pk"])
+        except Exception:
+            raise Http404("Country matching query does not exist")
+        feature = self.serializer_class(instance, context=self.get_serializer_context()).data
+        return Response(feature)
+
+    @pagination
+    def list(self, request, *args, paginator: Paginator, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        feature_collection = FeatureCollectionSerializer.get_feature_collection(queryset, self.serializer_class,
+                                                                                self.get_serializer_context(),
+                                                                                paginator,
+                                                                                request.query_params)
+        return Response(feature_collection)
+
+    # Отдаёт список городов страны
+    @action(detail=True, methods=['GET'])
+    def cities(self, request: Request, pk: int):
+        paginator = get_paginator(request)
+        queryset = City.objects.all().filter(country_id=pk)
+        queryset = CityFilter(data=request.query_params, queryset=queryset).qs
+        feature_collection = FeatureCollectionSerializer.get_feature_collection(queryset, CitySerializer,
+                                                                                self.get_serializer_context(),
+                                                                                paginator,
+                                                                                request.query_params)
+        return Response(feature_collection)
 
 
 class CityAPI(BaseAPI):
@@ -115,7 +114,7 @@ class CityAPI(BaseAPI):
 
     @get_standard_query_param
     @pagination
-    def get(self, request: Request, city_id=None, country_id=None, paginator: Paginator = None, bbox=None,
+    def get(self, request: Request, city_id=None, paginator: Paginator = None, bbox=None,
             type_geo_output=None, **kwargs):
         """
         query_params: \n
@@ -137,7 +136,7 @@ class CityAPI(BaseAPI):
             return Response(data=result_data)
 
         # для нескольких объектов
-        cities = City.model_filter(bbox_coords=bbox, country_id=country_id)
+        cities = City.model_filter(bbox_coords=bbox)
         count_data = len(cities)
 
         cities = cities[paginator.offset: paginator.offset + paginator.limit]

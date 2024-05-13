@@ -44,14 +44,14 @@ class MyEndpointCountry(TestCase):
         print("test_endpoint_countries_create_patch_delete_get --- pass --- created")
 
         res_data = response.json()
-        url += f"{res_data['id']}"
+        url += f"{res_data['id']}/"
 
         response = self.client.patch(url, data={"name": "test99"}, content_type="application/json")
         self.assertContains(response, "test99")
         print("test_endpoint_countries_create_patch_delete_get --- pass --- change")
 
         response = self.client.delete(url)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 204)
         print("test_endpoint_countries_create_patch_delete_get --- pass --- delete")
 
         response = self.client.get(url)

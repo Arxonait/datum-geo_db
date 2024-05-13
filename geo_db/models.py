@@ -68,7 +68,7 @@ class City(GeoModel):
         verbose_name_plural = "Города"
 
     @classmethod
-    def model_filter(cls, city_id: int = None, bbox_coords: list[float] = None, country_id: int = None):
+    def model_filter(cls, city_id: int = None, bbox_coords: list[float] = None):
         if city_id:
             return cls.objects.filter(pk=city_id)
 
@@ -76,9 +76,6 @@ class City(GeoModel):
         if bbox_coords:
             bbox_polygon = Polygon.from_bbox(bbox_coords)
             filter_data["coordinates__within"] = bbox_polygon
-        if country_id:
-            filter_data["country_id"] = country_id
-
         return cls.objects.filter(**filter_data)
 
 
