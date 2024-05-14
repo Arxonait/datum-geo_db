@@ -28,8 +28,8 @@ class BaseViewSet(viewsets.ModelViewSet):
         return queryset
 
     def retrieve(self, request, *args, pk, **kwargs):
-        instance = self.get_target_obj(pk)
-        feature = self.serializer_class(instance, context=self.get_serializer_context()).data
+        queryset = self.get_target_obj(pk)
+        feature = self.serializer_class(queryset, context=self.get_serializer_context()).data
         return Response(feature)
 
     @pagination
@@ -172,10 +172,11 @@ class CityViewSet(BaseViewSet):
 
     @images.mapping.delete
     def image_delete(self, request, pk: int, num_image: int = None):
-        result = self.get_images(pk, num_image)
         if num_image is None:
             return Response({"detail": "num image is required for delete"}, status=status.HTTP_400_BAD_REQUEST)
+
         num_image = int(num_image)
+        result = self.get_images(pk, num_image)
 
         if isinstance(result, Response):
             return result
@@ -184,14 +185,14 @@ class CityViewSet(BaseViewSet):
 
     @images.mapping.post
     def image_post(self, request: Request, pk, *args, **kwargs):
-        os.makedirs(os.path.dirname(r"./media"), exist_ok=True)
-        city = self.get_target_obj(pk)
+        os.makedirs(os.path.dirname(r"media/"), exist_ok=True)
+        city_qs = self.get_target_obj(pk)
 
         base64_image = request.data.get("base64_image")
         if base64_image is None:
             return Response({"detail": "base64_image is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        photo = Photo(city=city, base64_image=base64_image)
+        photo = Photo(city=city_qs[0], base64_image=base64_image)
         photo.save()
         return Response(data={"status": "created"}, status=status.HTTP_201_CREATED)
 

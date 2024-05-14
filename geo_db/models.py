@@ -45,7 +45,7 @@ class Capital(GeoModel):
 
 
 class Photo(models.Model):
-    image = models.ImageField(upload_to="./media")
+    image = models.ImageField(upload_to="media/")
     time_created = models.DateTimeField(auto_now_add=True)
     city = models.ForeignKey("City", on_delete=models.CASCADE, related_name='images')
 
@@ -65,7 +65,7 @@ class Photo(models.Model):
         return base64.b64encode(img_data).decode('utf-8')
 
     def __get_new_image_name(self):
-        return f'{self.city.id}_{str(uuid.uuid4())[:7]}.jpg'
+        return f'{self.city.id}_{str(uuid.uuid4())[:7]}.png'
 
     def delete(self, *args, **kwargs):
         # Удаление связанного файла перед удалением объекта

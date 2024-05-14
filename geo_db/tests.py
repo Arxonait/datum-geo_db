@@ -1,6 +1,7 @@
 import base64
 
 import pandas
+from django.contrib.gis.geos import Polygon
 from django.test import TestCase
 
 from geo_db.models import Country, City
@@ -9,6 +10,10 @@ URL = "http://127.0.0.1:8000/api/"
 COORDINATE_TEST = ("POLYGON((29.62999999999999 46.84000000001423, 29.62999999999999 46.84160000001423, "
                    "29.63849999999999 46.84160000001423, 29.63849999999999 46.84000000001423, 29.62999999999999 "
                    "46.84000000001423))")
+TEST_POLYGON = ((19.298488064150035, 43.510902041818866),
+                (19.528309386031935, 43.24686866222709),
+                (20.179459092915266, 42.82572783537185),
+                (19.298488064150035, 43.510902041818866))
 
 
 # Create your tests here.
@@ -68,41 +73,28 @@ class MyEndpointCountry(TestCase):
 
 
 class MyEndpointImage(TestCase):
-    def setUp(self):
-        country = Country(name="testtt",
-                          coordinates=COORDINATE_TEST)
-        country.save()
-
-        city = City(name="testtt", coordinates=COORDINATE_TEST,  description="foo", country=country)
-        city.save()
-        self.city = city
-
+    fixtures = ["test_country", "test_city"]
     def test_endpoint_images(self):
-        url = URL + f"cities/{self.city.pk}/images"
+        url = f"/api/cities/2/images/"
         
-        with open("D:/testimg.png", "rb") as image_file:
+        with open(r"media/test/test_image.png", "rb") as image_file:
             binary_data = image_file.read()
         base64_data = base64.b64encode(binary_data)
 
         data = {
-            "base64_image": str(base64_data)
+            "base64_image": base64_data.decode("utf-8")
         }
         response = self.client.post(url, data=data, content_type="application/json")
         self.assertContains(response, "created", status_code=201)
-        print("test_endpoint_images --- pass --- image upload")
 
-        response = self.client.get(url + "/1")
+        response = self.client.get(url + "1/")
         self.assertContains(response, "base64_image", status_code=200)
 
         data = response.json()
         binary_data = base64.b64decode(data["base64_image"])
 
-        with open("test.png", 'wb') as file:
-            file.write(binary_data)
+        # with open("test.png", 'wb') as file:
+        #     file.write(binary_data)
 
-        print("test_endpoint_images --- pass --- image download")
-
-        response = self.client.delete(url + "/1")
+        response = self.client.delete(url + "1/")
         self.assertContains(response, "delete image", status_code=200)
-
-        print("test_endpoint_images --- pass --- image deleted")
