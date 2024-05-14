@@ -112,7 +112,7 @@ class CountryViewSet(BaseViewSet):
         except Exception as e:
             return Response({"detail": f"error: {e.args[0]}"}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(data=obj.data, status=status.HTTP_201_CREATED)
+        return Response(data=obj.data, status=status.HTTP_200_OK)
 
     @capital.mapping.patch
     def patch_capital(self, request: Request, pk: int):

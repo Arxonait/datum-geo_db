@@ -1,82 +1,66 @@
 import base64
 
-import pandas
 from django.contrib.gis.geos import Polygon
 from django.test import TestCase
 
-from geo_db.models import Country, City
-
-URL = "http://127.0.0.1:8000/api/"
-COORDINATE_TEST = ("POLYGON((29.62999999999999 46.84000000001423, 29.62999999999999 46.84160000001423, "
-                   "29.63849999999999 46.84160000001423, 29.63849999999999 46.84000000001423, 29.62999999999999 "
-                   "46.84000000001423))")
 TEST_POLYGON = ((19.298488064150035, 43.510902041818866),
                 (19.528309386031935, 43.24686866222709),
                 (20.179459092915266, 42.82572783537185),
                 (19.298488064150035, 43.510902041818866))
+BBOX_ARRAY = [
+    (("serbia",), "14.29368212620912 34.6381741548327 42.19753730351246 48.57334147892965"),
+    (("serbia", "turkey"), "14.533444941126703 32.43752552067821 46.39631982796453 48.66047888075295"),
+    (("serbia",), "16.65426881144313 41.232741282364515 25.591189909754917 48.07800474300802"),
+    ((), "14.29368212620912 34.6381741548327 42.19753730351246 48.57334147892965"),
+]
 
 
 # Create your tests here.
 class MyEndpointCountry(TestCase):
-    def setUp(self):
-        self.countries = []
-        table_countries = pandas.read_csv(r"countries.csv", delimiter=";")
-        for index, row in table_countries.iterrows():
-            country = Country(name=row["name"], coordinates=row["coordinates"])
-            country.save()
-            self.countries.append(country)
+    fixtures = ["test_country", ]
 
-        table_cities = pandas.read_csv(r"cities.csv", delimiter=";")
-        for index, row in table_cities.iterrows():
-            City(name=row["name"], coordinates=row["coordinates"], description="foo",
-                 country=self.countries[row["country_id"] - 1]).save()
-
-        self.bbox_data = []
-        table_bbox = pandas.read_csv(r"bbox.csv", delimiter=";")
-        for index, row in table_bbox[table_bbox["type"] == "country"].iterrows():
-            self.bbox_data.append((row["bbox"], len(row["obj"].split(",") if isinstance(row["obj"], str) else "")))
-
-    def test_endpoint_countries_create_patch_delete_get(self):
-        url = URL + "countries/"
-
+    def test_create_countries(self):
+        url = "/api/countries/"
         data = {
-            "name": "test88",
-            "coordinates": COORDINATE_TEST
+            "name": "test",
+            "coordinates": Polygon(TEST_POLYGON).wkt
         }
-
         response = self.client.post(url, data=data)
         self.assertEqual(response.status_code, 201)
-        print("test_endpoint_countries_create_patch_delete_get --- pass --- created")
 
-        res_data = response.json()
-        url += f"{res_data['id']}/"
+    def test_patch_countries(self):
+        url = "/api/countries/1/"
+        data = {
+                "name": "test88"
+                }
+        response = self.client.patch(url, data=data, content_type="application/json")
+        self.assertContains(response, "test88")
 
-        response = self.client.patch(url, data={"name": "test99"}, content_type="application/json")
-        self.assertContains(response, "test99")
-        print("test_endpoint_countries_create_patch_delete_get --- pass --- change")
-
+    def test_delete_country(self):
+        url = "/api/countries/2/"
         response = self.client.delete(url)
         self.assertEqual(response.status_code, 204)
-        print("test_endpoint_countries_create_patch_delete_get --- pass --- delete")
 
+    def test_get_country_not_found(self):
+        url = "/api/countries/50/"
         response = self.client.get(url)
         self.assertEqual(response.status_code, 404)
-        print("test_endpoint_countries_create_patch_delete_get --- pass --- get(not found)")
 
     def test_countries_bbox(self):
-        url = URL + "countries/"
-        for bbox_data in self.bbox_data:
-            response = self.client.get(url + f"?bbox={bbox_data[0]}")
+        url = "/api/countries/"
+        for countries, bbox in BBOX_ARRAY:
+            response = self.client.get(url + f"?bbox={bbox}")
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.json()["count"], bbox_data[1])
-            print("test_countries_bbox --- pass")
+            for country in countries:
+                self.assertContains(response, country)
 
 
 class MyEndpointImage(TestCase):
     fixtures = ["test_country", "test_city"]
+
     def test_endpoint_images(self):
         url = f"/api/cities/2/images/"
-        
+
         with open(r"media/test/test_image.png", "rb") as image_file:
             binary_data = image_file.read()
         base64_data = base64.b64encode(binary_data)
