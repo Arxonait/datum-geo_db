@@ -1,2 +1,2 @@
 .idea/
-geo_db/migrations/
+.env

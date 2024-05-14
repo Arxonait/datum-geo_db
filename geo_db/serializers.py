@@ -1,72 +1,96 @@
-import geojson
-from django.db.models import Model
+import json
+
+from django.contrib.gis.db.models.functions import Area
+from django.db.models import QuerySet
 from rest_framework import serializers
-from rest_framework.request import Request
 
 from geo_db.models import Country, City, Capital
 
 
 class GeoSerializerModel(serializers.ModelSerializer):
-    def get_fields(self):
-        fields = super().get_fields()
-        request: Request = self.context.get("request")
-        if request is None:
-            fields.pop("area")  # todo
-            return fields
+    area = serializers.SerializerMethodField()
 
-        if "area" not in request.query_params:
-            fields.pop("area")
-        return fields
+    def __init__(self, *args, single=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.single = single
 
-    def to_representation(self, instance):
-        if isinstance(instance, list):
-            feature_collection = geojson.FeatureCollection([self.to_representation_single(obj) for obj in instance])
+    def get_area(self, obj):
+        area = getattr(obj, 'area', None)
+        if area is None:
+            return None
+        return area.sq_m
+
+    def change_queryset_serializers_context(self, queryset):
+        context = self.context
+        if "area" in context:
+            queryset = queryset.annotate(area=Area('coordinates'))
+
+        return queryset
+
+    def to_representation(self, queryset: QuerySet):
+        if not isinstance(queryset, QuerySet) and self.single == True:
+            return self.to_representation_single(queryset)
+
+        instances = self.change_queryset_serializers_context(queryset)
+        if not self.single:
+            feature_collection = {
+                "type": "FeatureCollection",
+                "features": [self.to_representation_single(obj) for obj in instances]
+            }
             return feature_collection
         else:
+            instance = instances[0]
             return self.to_representation_single(instance)
 
     def to_representation_single(self, instance):
-        target_fields = self.get_fields()
+        serialize_data = super().to_representation(instance)
 
-        properties = {}
-        for target_field in target_fields:
-            if target_field not in (self.Meta.id_field, self.Meta.geo_field):
-                try:
-                    value = instance.__getattribute__(target_field)
-                    if isinstance(value, Model):
-                        value = value.id
-                    properties[target_field] = value
-                except AttributeError as e:
-                    continue
+        proprieties = {}
+        for atr in serialize_data:
+            if atr not in ["id", "coordinates"] and serialize_data[atr] is not None:
+                proprieties[atr] = serialize_data[atr]
 
-        cords = geojson.Polygon(instance.coordinates.coords[0])
-
-        result = geojson.Feature(id=instance.pk, geometry=cords, properties=properties)
+        result = {
+            "type": "Feature",
+            "geometry": json.loads(instance.coordinates.json),
+            "id": instance.pk,
+            "properties": proprieties
+        }
         return result
+
+        # properties = {}
+        # for target_field in target_fields:
+        #     if target_field not in (self.Meta.id_field, self.Meta.geo_field):
+        #         try:
+        #             value = instance.__getattribute__(target_field)
+        #             if isinstance(value, Model):
+        #                 value = value.id
+        #             properties[target_field] = value
+        #         except AttributeError as e:
+        #             continue
+
+        # cords = geojson.Polygon(instance.coordinates.coords[0])
+        #
+        # result = geojson.Feature(id=instance.pk, geometry=cords, properties=properties)
+        # return result
 
 
 class CountySerializer(GeoSerializerModel):
     class Meta:
         model = Country
         fields = ("id", "name", "coordinates", "area")
-        id_field = "id"
-        geo_field = "coordinates"
 
 
 class CitySerializer(GeoSerializerModel):
     class Meta:
         model = City
         fields = ("id", "name", "coordinates", "area", "description", "country")
-        id_field = "id"
-        geo_field = "coordinates"
 
 
 class CapitalSerializer(GeoSerializerModel):
     class Meta:
         model = Capital
         fields = ("id", "name", "coordinates", "area", "country")
-        id_field = "id"
-        geo_field = "coordinates"
 
 
 class DataCollectionSerializer:
@@ -74,7 +98,7 @@ class DataCollectionSerializer:
     def get_feature_collection(cls, queryset, serializer, serializer_context, paginator, query_params):
         count_data = queryset.count()
         data = queryset[paginator.get_start():paginator.get_end()]
-        feature_collection = serializer(list(queryset), context=serializer_context).data
+        feature_collection = serializer(queryset, context=serializer_context, single=False).data
 
         if query_params.get("total_area"):  # todo
             total_area = sum([obj.area for obj in data])

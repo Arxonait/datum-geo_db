@@ -15,13 +15,17 @@ from geo_db.serializers import CountySerializer, DataCollectionSerializer, CityS
 
 class BaseViewSet(viewsets.ModelViewSet):
 
+    def get_serializer_context(self):
+        context = {}
+        if "area" in self.request.query_params:
+            context["area"] = True
+        return context
+
     def get_target_obj(self, pk):
-        # instance = self.get_object()
-        try:
-            instance = self.get_queryset().get(pk=pk)
-        except Exception:
+        queryset = self.get_queryset().filter(pk=pk)
+        if len(queryset) != 1:
             raise Http404(f"{self.name_model} not found")
-        return instance
+        return queryset
 
     def retrieve(self, request, *args, pk, **kwargs):
         instance = self.get_target_obj(pk)
@@ -39,7 +43,6 @@ class BaseViewSet(viewsets.ModelViewSet):
 
 
 class CountryViewSet(BaseViewSet):
-    # todo  type_geo_output ['simple', 'feature'] default feature
     queryset = Country.objects.all()
     serializer_class: CountySerializer = CountySerializer
     filter_backends = [django_filters.rest_framework.DjangoFilterBackend]
@@ -181,7 +184,7 @@ class CityViewSet(BaseViewSet):
 
     @images.mapping.post
     def image_post(self, request: Request, pk, *args, **kwargs):
-        os.makedirs(os.path.dirname(os.getenv("IMAGES_PATH")), exist_ok=True)
+        os.makedirs(os.path.dirname(r"./media"), exist_ok=True)
         city = self.get_target_obj(pk)
 
         base64_image = request.data.get("base64_image")

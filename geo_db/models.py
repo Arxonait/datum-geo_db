@@ -1,16 +1,11 @@
 import base64
-import os
 import uuid
 
 from django.contrib.gis.db import models
-from django.contrib.gis.geos import Polygon
 from django.core.files.base import ContentFile
 from osgeo import ogr
 from pyproj import Transformer
 
-crs_from = "epsg:4326"
-crs_to = "epsg:32633"
-transformer = Transformer.from_crs(crs_from, crs_to, always_xy=True)
 
 
 class GeoModel(models.Model):
@@ -20,25 +15,10 @@ class GeoModel(models.Model):
         abstract = True
 
     name = models.CharField(max_length=255)
-    coordinates = models.PolygonField()
+    coordinates = models.PolygonField(srid=4326, geography=True)
 
     def __str__(self):
         return f"Name: {self.name}"
-
-    @property
-    def area(self):
-        """Площадь в квадратных метрах"""
-        coords_degrees = self.coordinates.coords[0]
-        coords_meters = [transformer.transform(lon, lat) for lon, lat in coords_degrees]
-        ring = ogr.Geometry(ogr.wkbLinearRing)
-        for x, y in coords_meters:
-            ring.AddPoint(x, y)
-
-        poly = ogr.Geometry(ogr.wkbPolygon)
-        poly.AddGeometry(ring)
-
-        area = poly.GetArea()
-        return round(area, 4)
 
 
 class Country(GeoModel):
@@ -65,7 +45,7 @@ class Capital(GeoModel):
 
 
 class Photo(models.Model):
-    image = models.ImageField(upload_to=os.getenv("IMAGES_PATH"))
+    image = models.ImageField(upload_to="./media")
     time_created = models.DateTimeField(auto_now_add=True)
     city = models.ForeignKey("City", on_delete=models.CASCADE, related_name='images')
 

@@ -28,8 +28,14 @@ SECRET_KEY = 'django-insecure-z&xk79-e%d-r^gu54piv&1ho2ugv=&v0w_llmhw6c#^tyx9u@^
 DEBUG = True
 
 ALLOWED_HOSTS = ['127.0.0.1']
+GDAL_LIBRARY_PATH = os.getenv("GDAL_LIBRARY")
 
-GDAL_LIBRARY_PATH = r"C:\OSGeo4W\bin\gdal308.dll"
+OSGEO4W = os.getenv("OSGEO4W")
+assert os.path.isdir(OSGEO4W), "Directory does not exist: " + OSGEO4W
+os.environ['OSGEO4W_ROOT'] = OSGEO4W
+os.environ['GDAL_DATA'] = OSGEO4W + r"\share\gdal"
+os.environ['PROJ_LIB'] = OSGEO4W + r"\share\proj"
+os.environ['PATH'] = OSGEO4W + r"\bin;" + os.environ['PATH']
 
 # Application definition
 
@@ -85,8 +91,8 @@ DATABASES = {
         'NAME': os.getenv("NAME_DB"),
         'USER': os.getenv("USER_DB"),
         'PASSWORD': os.getenv("PASSWORD_DB"),
-        'HOST': 'localhost',
-        'PORT': 5432,
+        'HOST': os.getenv("HOST_DB"),
+        'PORT': os.getenv("PORT_DB"),
     }
 }
 
