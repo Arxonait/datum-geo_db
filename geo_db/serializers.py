@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 from rest_framework import serializers
 
+from geo_db.additional_modules.pagination import Paginator
 from geo_db.models import Country, City, Capital
 
 
@@ -48,18 +49,18 @@ class GeoSerializerModel(serializers.ModelSerializer):
         return queryset
 
     def to_representation(self, queryset: QuerySet):
-        if not isinstance(queryset, QuerySet) and self.single == True:
+        if not isinstance(queryset, QuerySet) and self.single:
             return self.to_representation_single(queryset)
 
-        instances = self.change_queryset_serializers_context(queryset)
+        queryset = self.change_queryset_serializers_context(queryset)
         if not self.single:
             feature_collection = {
                 "type": "FeatureCollection",
-                "features": [self.to_representation_single(obj) for obj in instances]
+                "features": [self.to_representation_single(obj) for obj in queryset]
             }
             return feature_collection
         else:
-            instance = instances[0]
+            instance = queryset[0]
             return self.to_representation_single(instance)
 
     def to_representation_single(self, instance):
@@ -99,13 +100,14 @@ class CapitalSerializer(GeoSerializerModel):
 
 class DataCollectionSerializer:
     @classmethod
-    def get_feature_collection(cls, queryset, serializer, serializer_context, paginator, query_params):
+    def get_feature_collection(cls, queryset, serializer, serializer_context, paginator: Paginator, query_params):
         count_data = queryset.count()
-        data = queryset[paginator.get_start():paginator.get_end()]
+        queryset = queryset[paginator.get_start():paginator.get_end()]
         feature_collection = serializer(queryset, context=serializer_context, single=False).data
 
-        if query_params.get("total_area"):  # todo
-            total_area = sum([obj.area for obj in data])
+        if "total_area" in query_params:
+            queryset = queryset.annotate(area=Area('coordinates'))
+            total_area = sum([obj.area.sq_m for obj in queryset])
             feature_collection["total_area"] = total_area
 
         feature_collection.update(paginator.get_pagination_data(count_data))

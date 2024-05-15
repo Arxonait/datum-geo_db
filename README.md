@@ -1,19 +1,27 @@
 **Управление геопространственной базой данных (тестовое задание 1 DATUM Group)**
 
-Необходим PostgreSQL/PostGIS и геоинформационная библиотека gdal
+Необходим PostgreSQL/PostGIS и геоинформационная библиотека gdal, OSGeo4W
 
-**Установка** 
-``` bash
-conda create --name <my-env>
-conda activate <my-env>
-pip install -r requirements.txt
+Установка
 ```
-Вписать данные в файл .env
-В settings.py url и путь к gdall библиотеке 
+conda env create -n <name-env> -f environment.yaml
+conda activate <name-env>
+```
+
+Создать файл .env 
+```
+NAME_DB=...
+USER_DB=...
+PASSWORD_DB=...
+HOST_DB=...
+PORT_DB=...
+GDAL_LIBRARY= ... + .dll
+OSGEO4W= ... (Ex: C:\OSGeo4W)
+```
 
 **Запуск**
-``` bash 
-python .\manage.py runserver <url>
+```
+python .\manage.py runserver
 ```
 
 **Endpoints**
@@ -29,10 +37,9 @@ python .\manage.py runserver <url>
 10. countries/<int:country_id>/capital
 
 **GET params**
-1. area: bool - площадь объекта в квадратных метрах
+1. area - площадь объекта в квадратных метрах
 2. bbox x_min y_min x_max y_max
-3. type_geo_output: ['simple', 'feature'] default feature - определение формата вывода ответа
-4. total area: bool - суммарная площадь всех объектов в ответе (пагинации)
+3. total area - суммарная площадь всех объектов в ответе (пагинации)
 
 **Пагинация**
 1. limit and offset

@@ -104,6 +104,22 @@ class EndpointCountry(TestCase):
         response = self.client.get(url)
         self.assertContains(response, "area")
 
+    def test_get_countries_area(self):
+        url = "/api/countries/?area"
+        response = self.client.get(url)
+        self.assertContains(response, "area")
+
+    def test_get_countries_area_total_area(self):
+        url = "/api/countries/?area&total_area"
+        response = self.client.get(url)
+        self.assertContains(response, "area")
+        self.assertContains(response, "total_area")
+
+    def test_get_country_total_area_without_area(self):
+        url = "/api/countries/?total_area"
+        response = self.client.get(url)
+        self.assertContains(response, "total_area")
+
 
 class EndpointCity(TestCase):
     fixtures = ["test_country", "test_city"]
@@ -118,6 +134,7 @@ class EndpointCity(TestCase):
     def test_city_bbox(self):
         self.sup_city_bbox(("opornica", "resnik"), "20.828530482799607 44.04283412827576 20.954330958696545 44.12627250468475")
         self.sup_city_bbox(("resnik",), "20.890127310203695 44.103420443101044 20.951539625376938 44.13638003111589")
+
 
 class EndpointImage(TestCase):
     fixtures = ["test_country", "test_city"]
