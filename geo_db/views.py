@@ -1,6 +1,7 @@
 import os
 
 import django_filters
+from django.contrib.gis.db.models.functions import Area
 from django.http import Http404
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -15,17 +16,23 @@ from geo_db.serializers import CountySerializer, DataCollectionSerializer, CityS
 
 class BaseViewSet(viewsets.ModelViewSet):
 
-    def get_serializer_context(self):
-        context = {}
-        if "area" in self.request.query_params:
-            context["area"] = True
-        return context
+    def get_queryset(self):
+        queryset = self.queryset
+        if "area" in self.request.query_params or "total_area" in self.request.query_params:
+            queryset = queryset.annotate(area=Area('coordinates'))
+        return queryset
+
+    # def get_serializer_context(self):
+    #     context = {}
+    #     if "area" in self.request.query_params:
+    #         context["area"] = True
+    #     return context
 
     def get_target_obj(self, pk):
         queryset = self.get_queryset().filter(pk=pk)
         if len(queryset) != 1:
             raise Http404(f"{self.name_model} not found")
-        return queryset
+        return queryset[0]
 
     def retrieve(self, request, *args, pk, **kwargs):
         queryset = self.get_target_obj(pk)
@@ -186,13 +193,13 @@ class CityViewSet(BaseViewSet):
     @images.mapping.post
     def image_post(self, request: Request, pk, *args, **kwargs):
         os.makedirs(os.path.dirname(r"media/"), exist_ok=True)
-        city_qs = self.get_target_obj(pk)
+        city = self.get_target_obj(pk)
 
         base64_image = request.data.get("base64_image")
         if base64_image is None:
             return Response({"detail": "base64_image is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        photo = Photo(city=city_qs[0], base64_image=base64_image)
+        photo = Photo(city=city, base64_image=base64_image)
         photo.save()
         return Response(data={"status": "created"}, status=status.HTTP_201_CREATED)
 
