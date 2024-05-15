@@ -1,6 +1,8 @@
 import json
 
 from django.contrib.gis.db.models.functions import Area
+from django.contrib.gis.geos import GEOSGeometry, Polygon
+from django.core.exceptions import ValidationError
 from django.db.models import QuerySet
 from rest_framework import serializers
 
@@ -13,6 +15,24 @@ class GeoSerializerModel(serializers.ModelSerializer):
     def __init__(self, *args, single=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.single = single
+
+    def validate_coordinates(self, value):
+        try:
+            polygon = GEOSGeometry(value)
+        except Exception as e:
+            raise ValidationError([str(e)])
+
+        if not isinstance(polygon, Polygon):
+            raise ValidationError(["geom must be a Polygon"])
+
+        if not polygon.valid:
+            raise ValidationError([f"geom is not a valid polygon: {polygon.valid_reason}"])
+
+        for coord in polygon.coords[0]:
+            if not (-180.0 <= coord[0] <= 180.0 and -90.0 <= coord[1] <= 90.0):
+                raise ValidationError([
+                    "Coordinates out of range: longitude must be between -180 and 180, latitude must be between -90 and 90"])
+        return polygon
 
     def get_area(self, obj):
         area = getattr(obj, 'area', None)
@@ -57,22 +77,6 @@ class GeoSerializerModel(serializers.ModelSerializer):
             "properties": proprieties
         }
         return result
-
-        # properties = {}
-        # for target_field in target_fields:
-        #     if target_field not in (self.Meta.id_field, self.Meta.geo_field):
-        #         try:
-        #             value = instance.__getattribute__(target_field)
-        #             if isinstance(value, Model):
-        #                 value = value.id
-        #             properties[target_field] = value
-        #         except AttributeError as e:
-        #             continue
-
-        # cords = geojson.Polygon(instance.coordinates.coords[0])
-        #
-        # result = geojson.Feature(id=instance.pk, geometry=cords, properties=properties)
-        # return result
 
 
 class CountySerializer(GeoSerializerModel):

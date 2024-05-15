@@ -7,16 +7,57 @@ TEST_POLYGON = ((19.298488064150035, 43.510902041818866),
                 (19.528309386031935, 43.24686866222709),
                 (20.179459092915266, 42.82572783537185),
                 (19.298488064150035, 43.510902041818866))
-BBOX_ARRAY = [
-    (("serbia",), "14.29368212620912 34.6381741548327 42.19753730351246 48.57334147892965"),
-    (("serbia", "turkey"), "14.533444941126703 32.43752552067821 46.39631982796453 48.66047888075295"),
-    (("serbia",), "16.65426881144313 41.232741282364515 25.591189909754917 48.07800474300802"),
-    ((), "14.29368212620912 34.6381741548327 42.19753730351246 48.57334147892965"),
-]
 
 
-# Create your tests here.
-class MyEndpointCountry(TestCase):
+class BaseEndpoints(TestCase):
+    fixtures = ["test_country", ]
+
+    def test_format_feature_target_obj(self):
+        url = "/api/countries/1/"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data["type"], str)
+        self.assertEqual(data["type"], "Feature")
+        self.assertIsInstance(data["properties"], dict)
+        self.assertIsInstance(data["geometry"], dict)
+        self.assertIsInstance(data["geometry"]["type"], str)
+        self.assertIsInstance(data["geometry"]["coordinates"], list)
+
+    def test_format_feature_collection(self):
+        url = "/api/countries/"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data["type"], str)
+        self.assertEqual(data["type"], "FeatureCollection")
+        self.assertIsInstance(data["features"], list)
+
+    def test_create_point(self):
+        url = "/api/countries/"
+        data = {
+            "name": "test",
+            "coordinates": "Point(20.0 20.0)"
+        }
+        response = self.client.post(url, data=data)
+        self.assertEqual(response.status_code, 400)
+
+    def sup_create_wrong_format_wkt_polygon(self, polygon_wkt: str, status_code):
+        url = "/api/countries/"
+        data = {
+            "name": "test",
+            "coordinates": polygon_wkt
+        }
+        response = self.client.post(url, data=data)
+        self.assertEqual(response.status_code, status_code)
+
+    def test_format_wkt_polygon(self):
+        self.sup_create_wrong_format_wkt_polygon("Polygon((30 10, 40 40, 20 40, 10 20, 30 10))", 201)
+        self.sup_create_wrong_format_wkt_polygon("POLYGON((30 10, 40 40, 20 40, 10 20, 30 10))", 201)
+        self.sup_create_wrong_format_wkt_polygon("Polygon((30 10, 40 40, 20 40, 10 20))", 400)
+
+
+class EndpointCountry(TestCase):
     fixtures = ["test_country", ]
 
     def test_create_countries(self):
@@ -31,8 +72,8 @@ class MyEndpointCountry(TestCase):
     def test_patch_countries(self):
         url = "/api/countries/1/"
         data = {
-                "name": "test88"
-                }
+            "name": "test88"
+        }
         response = self.client.patch(url, data=data, content_type="application/json")
         self.assertContains(response, "test88")
 
@@ -46,16 +87,39 @@ class MyEndpointCountry(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 404)
 
-    def test_countries_bbox(self):
+    def sup_countries_bbox(self, countries: tuple[str], bbox: str):
         url = "/api/countries/"
-        for countries, bbox in BBOX_ARRAY:
-            response = self.client.get(url + f"?bbox={bbox}")
-            self.assertEqual(response.status_code, 200)
-            for country in countries:
-                self.assertContains(response, country)
+        response = self.client.get(url + f"?bbox={bbox}")
+        self.assertEqual(response.status_code, 200)
+        for country in countries:
+            self.assertContains(response, country)
+
+    def test_countries_bbox(self):
+        self.sup_countries_bbox(("serbia",), "14.29368212620912 34.6381741548327 42.19753730351246 48.57334147892965")
+        self.sup_countries_bbox(("serbia", "turkey"), "14.533444941126703 32.43752552067821 46.39631982796453 48.66047888075295")
+        self.sup_countries_bbox(("serbia",), "16.65426881144313 41.232741282364515 25.591189909754917 48.07800474300802")
+
+    def test_get_country_area(self):
+        url = "/api/countries/1/?area"
+        response = self.client.get(url)
+        self.assertContains(response, "area")
 
 
-class MyEndpointImage(TestCase):
+class EndpointCity(TestCase):
+    fixtures = ["test_country", "test_city"]
+
+    def sup_city_bbox(self, city: tuple[str], bbox: str):
+        url = "/api/cities/"
+        response = self.client.get(url + f"?bbox={bbox}")
+        self.assertEqual(response.status_code, 200)
+        for city in city:
+            self.assertContains(response, city)
+
+    def test_city_bbox(self):
+        self.sup_city_bbox(("opornica", "resnik"), "20.828530482799607 44.04283412827576 20.954330958696545 44.12627250468475")
+        self.sup_city_bbox(("resnik",), "20.890127310203695 44.103420443101044 20.951539625376938 44.13638003111589")
+
+class EndpointImage(TestCase):
     fixtures = ["test_country", "test_city"]
 
     def test_endpoint_images(self):
