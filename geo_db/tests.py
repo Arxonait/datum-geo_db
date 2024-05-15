@@ -136,6 +136,56 @@ class EndpointCity(TestCase):
         self.sup_city_bbox(("resnik",), "20.890127310203695 44.103420443101044 20.951539625376938 44.13638003111589")
 
 
+class EndpointCapital(TestCase):
+    fixtures = ["test_country", "test_capital"]
+
+    def test_create_capital(self):
+        url = "/api/capitals/"
+        data = {
+            "name": "test",
+            "coordinates": Polygon(TEST_POLYGON).wkt,
+            "country": 3
+        }
+        response = self.client.post(url, data=data)
+        self.assertEqual(response.status_code, 201)
+
+    def test_create_capital2(self):
+        url = "/api/capitals/"
+        data = {
+            "name": "test",
+            "coordinates": Polygon(TEST_POLYGON).wkt,
+            "country": 2
+        }
+        response = self.client.post(url, data=data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_delete_country(self):
+        url = "/api/capitals/2/"
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, 204)
+
+    def test_create_countries_capital(self):
+        capital_id = 3
+        url = f"/api/countries/{capital_id}/capital/"
+        data = {
+            "name": "test",
+            "coordinates": Polygon(TEST_POLYGON).wkt,
+            "country": capital_id
+        }
+        response = self.client.post(url, data=data)
+        self.assertEqual(response.status_code, 201)
+
+    def test_create_capital_without_body_country_id(self):
+        url = "/api/countries/3/capital/"
+        data = {
+            "name": "test",
+            "coordinates": Polygon(TEST_POLYGON).wkt
+        }
+        response = self.client.post(url, data=data)
+        self.assertEqual(response.status_code, 400)
+
+
+
 class EndpointImage(TestCase):
     fixtures = ["test_country", "test_city"]
 
